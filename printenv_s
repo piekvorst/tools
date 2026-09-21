@@ -1,0 +1,4 @@
+#!/bin/sh
+
+printenv --null |
+un9 awk -v 'FS==' -v 'RS=\0' '{print $1}'

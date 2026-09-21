@@ -1,0 +1,23 @@
+#!/usr/bin/env rc
+
+. 9.rc
+
+fn append {
+	$1 = ($($1)(1)$2$3 $($1)(2)$3$2)
+}
+
+# tr can't map one input character to two outputs. append is
+# bidirectional, so don't reuse any character.
+
+pair = ('' '')
+append pair '`' 'ё'
+append pair '~' 'Ё'
+append pair '#&' '№?'
+append pair 'qwertyuiop[]' 'йцукенгшщзхъ'
+append pair 'QWERTYUIOP{}' 'ЙЦУКЕНГШЩЗХЪ'
+append pair 'asdfghjkl;''' 'фывапролджэ'
+append pair 'ASDFGHJKL:"' 'ФЫВАПРОЛДЖЭ'
+append pair 'zxcvbnm,.' 'ячсмитьбю'
+append pair 'ZXCVBNM<>' 'ЯЧСМИТЬБЮ'
+
+exec tr $pair

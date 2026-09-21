@@ -1,0 +1,105 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# gpgdecrypt runs gpg --decrypt with arguments and, if it fails, runs
+# it under win. The idea is to make an illusion as if gpg were able
+# to request password from win. The trick is that if the command
+# requires TTY for entering password, it'd fail when run without TTY.
+#
+# If the command succeeds under win, the win window would be
+# automatically closed.
+#
+# Unlike gpg --decrypt, which might read the input conditionally,
+# gpgdecrypt always reads the input. If this is unintended, close the
+# command's input. The reason to this inconvenience is that we have
+# to provide the input twice: one time to test the command, and the
+# second time to run the same command under win. It's impossible to
+# do that without first reading the whole input, necessarily breaking
+# the caller's input flow.
+#
+# The stderr under win is not multiplexed. If the command fails, the
+# window remains, which feels OK. If the command succeeds, though,
+# the stderr is lost. The reason is that I just can't do it properly.
+# /bin/tee doesn't keep the output when Del (sighup) or ^C (sigint)
+# is inputted. Plan 9 version of /bin/tee further causes the stderr
+# to be printed after the prompt.
+#
+# Nevertheless, the status of the unrelying command is multiplexed.
+# It feels clumsy but is necessary. I could just run the same command
+# *third* time to see if anything changed since the command ran under
+# win, but the second successful run might subtly break some state.
+#
+# I tried to approach a more general problem by running any command
+# instead of just gpg --decrypt. Unfortunately, the whole thing
+# turned out to be much clumsier than I anticipated. The most
+# devastating blow is that some programs hang without TTY instead of
+# failing. The broken input flow further suggests that something is
+# wrong with the concept.
+#
+# BUGS
+#
+# . If the user deletes the win window too early, the sleep loop
+# would stay. I could've put ps |grep -s $winpid, but it's broken,
+# too: if the win exits too early, the loop wouldn't acquire the
+# window ID. A better synchronization is required.
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. libacme.rc
+
+buf = /tmp/gpgdecrypt$pid.`{seq 4}
+buffd0 = $buf(1)
+buffd1 = $buf(2)
+buffd2 = $buf(3)
+bufstatus = $buf(4)
+
+cmd = (gpg  --pinentry-mode loopback --decrypt $*)
+
+fn sigexit {rm -f $buf}
+
+cat >$buffd0
+
+# setsid prevents tty inheritance
+#
+if (setsid $cmd <$buffd0 >$buffd1 >[2]$buffd2) {
+	cat $buffd1 &
+	cat $buffd2 >[1=2] &
+	wait
+}
+if not {
+	name = gpg
+	win -n $name$pid rc -c '
+		fn sighup {} # Del
+		fn sigint {} # ^C
+		fn sigkill {}
+		$* <$buffd0 >$buffd1
+		echo $status >$bufstatus
+	' $cmd &
+	winpid = $apid
+
+	while (! winid = `{9p read acme/index |grep '*/-'$name$pid' Del Snarf' |sed 1q |awk '{print $1}'})
+		sleep 1
+
+	winctl name `{winname |sed 's|[^/]*$|-'$name'|'}
+
+	wait
+
+	# win stopped before the underlying process is done.
+	#
+	while (! test -e $bufstatus)
+		sleep 1
+
+	if (~ `{cat $bufstatus} '') {
+		cat $buffd1
+
+		# The window could be deleted by user
+		if (winread ctl >/dev/null >[2=1])
+			winctl delete
+
+		exit 0
+	}
+	if not {
+		exit `{cat $bufstatus}
+	}
+}

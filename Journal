@@ -1,0 +1,152 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+. liblist.rc
+. libtime.rc
+
+nl = '
+'
+
+now = `$datefs{date |tr A-Z a-z}
+
+progname = `{basename $0}
+
+fn usage {
+	>[1=2] {
+		echo $progname 1 jan 1970
+		echo $progname jan '[1970]'
+	}
+	exit usage
+}
+
+fn winmonth {echo `{winname} |sed -n 's/.*\/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\/.*/\1/p'}
+fn winyear {echo `{winname} |sed -n 's/.*\/([1-9][0-9]*)\/.*/\1/p'}
+
+fn checkday {
+	if (~ $1 [1-9] 0[1-9] [1-2][0-9] 3[0-1]) echo $1 |sed 's/^0*//'
+	if not ! echo >[1=2] unexpected day: $1
+}
+
+fn checkyear {
+	if (! ~ $1 *''$nl''* && echo -n $1 |grep -s '^[1-9][0-9]*$') echo $1
+	if not ! echo >[1=2] unexpected year: $1
+}
+
+fn checkmonth {
+	l = (jan feb mar apr may jun jul aug sep oct nov dec) {
+		if (~ $1 [1-9] 0[1-9] 1[0-2]) echo $l($1)
+		if not if (~ $1 [Jj]an [Jj]anuary) echo jan
+		if not if (~ $1 [Ff]eb [Ff]ebruary) echo feb
+		if not if (~ $1 [Mm]ar [Mm]arch) echo mar
+		if not if (~ $1 [Aa]pr [Aa]pril) echo apr
+		if not if (~ $1 [Mm]ay) echo may
+		if not if (~ $1 [Jj]un [Jj]une) echo jun
+		if not if (~ $1 [Jj]ul [Jj]uly) echo jul
+		if not if (~ $1 [Aa]ug [Aa]ugust) echo aug
+		if not if (~ $1 [Ss]ep [Ss]ept [Ss]eptember) echo sep
+		if not if (~ $1 [Oo]ct [Oo]ctober) echo oct
+		if not if (~ $1 [Nn]ov [Nn]ovember) echo nov
+		if not if (~ $1 [Dd]ec [Dd]ecember) echo dec
+		if not ! echo >[1=2] unexpected month: $1
+	}
+}
+
+fn printcal {
+	day = $1 month = $2 year = $3 {
+		cal $month $year |winwrite body
+		if (! ~ $day '') {
+			if (! winaddr 0+/F/+/S/+/$day/)
+				echo >[1=2] day not found
+		}
+		if not {
+			winaddr '0+/F/+/S/+/^/'
+		}
+		winctl dot=addr
+		winctl show
+	}
+}
+
+fn mktag {
+	month = $1 \
+	year = $2 \
+	l = (jan feb mar apr may jun jul aug sep oct nov dec) \
+	tag = `{
+		echo $progname
+		if (~ $month jan) {
+			echo dec
+			echo $year - 1 |bc
+		}
+		if not {
+			l = (jan feb mar apr may jun jul aug sep oct nov dec)
+			echo $l(`{echo `{listindex $month $l} - 1 |bc})
+			if (! ~ $year $now($dateyear))
+				echo $year
+		}
+		echo touch
+	} {
+		if (winread tag |sed 1q |grep -sv -e '*'$progname)
+			echo -n $"tag |winwrite tag
+	}
+}
+
+day = ''
+month = ''
+year = ''
+
+# It is much easier to reason about the input if no variable gets
+# assigned twice.
+#
+if (! ~ $#* 0 1 2 3) {
+	echo >[1=2] unexpected number of arguments: $#*
+	exit args
+}
+if not if (~ $#* 3) {
+	if (
+		! month = `{checkmonth $1} ||
+		! day = `{checkday $2} ||
+		! year = `{checkyear $3}
+	) {
+		usage
+		exit args
+	}
+}
+if not if (~ $#* 2) {
+	if (
+		! month = `{checkmonth $1} ||
+		! year = `{checkyear $2}
+	) {
+		usage
+		exit args
+	}
+	if (~ $month $now($datemonth) && ~ $year $now($dateyear))
+		day = $now($dateday)
+}
+if not if (~ $#* 1) {
+	if (! month = `{checkmonth $1}) {
+		usage
+		exit args
+	}
+	year = $now($dateyear)
+}
+if not if (! ~ $winid '' 0 && ! ~ `{winmonth} '' && ! ~ `{winyear} '') {
+	month = `{winmonth}
+	year = `{winyear}
+	if (~ $month $now($datemonth) && ~ $year $now($dateyear))
+		day = $now($dateday)
+}
+if not {
+	day = $now($dateday)
+	month = $now($datemonth)
+	year = $now($dateyear)
+}
+
+plumb -d edit $home/$year/$month
+winid = `{findwindow $home/$year/$month}
+mktag $month $year
+winctl font `{fixfont}
+printcal $day $month $year

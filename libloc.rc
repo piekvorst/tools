@@ -1,0 +1,56 @@
+#!/hint/rc
+
+# libloc.rc requires 9.rc
+
+# xloc extracts a line number from a path.
+#
+# It accepts many variations. To avoid ambiguity, :1:2-3 is
+# simplified to :1:2. :1:2-3 could mean both "line 1, column 2 to
+# column 3" and "line 1 column 2 to line 3."
+#
+# xloc always returns an array of 4 elements. If it returned only 12
+# 13, it would be impossible to tell whether 13 is a column or a
+# line.
+#
+# xloc operates on the lexical level, so empty values remain empty.
+# For example, :1 is (1 0 0 0), not (1 1 1 end).
+#
+# FIXME: sam looks really nice but grep seems to be more appropriate.
+#
+fn xloc {
+	num = '[1-9][0-9]*' {
+		{echo -n $1; echo} |ssam -e 'x {
+			s/.*:('$num'):('$num')-('$num'):('$num')$/\1 \2 \3 \4/
+			s/.*:('$num'):('$num')-('$num')$/\1 \2 0 0/
+			s/.*:('$num'):('$num')$/\1 \2 0 0/
+			v/:'$num':'$num'/ {
+				s/.*:('$num')-('$num'):('$num')$/\1 0 \2 \3/
+				s/.*:('$num')-('$num')$/\1 0 \2 0/
+				v/:'$num'-'$num'/ {
+					s/.*:('$num')$/\1 0 0 0/
+					v/:'$num'$/ s/.*/0 0 0 0/
+				}
+			}
+		}'
+	}
+}
+
+# locaddr converts a location to its sam address equivalent.
+#
+# To guide the eye, :1:2 not only places the dot on column 2 but
+# extends it till the end of line.
+#
+# The primary purpose of locaddr is to interpret a location from
+# *scripts*. The output is precise but not human-readable.
+#
+fn locaddr {
+	n = '[1-9][0-9]*' {
+		if (echo -n $* |g '^0 0 0 0$') true
+		if not if (echo -n $* |g '^'$n' 0 0 0$') echo -n $1
+		if not if (echo -n $* |g '^'$n' 0 '$n' 0$') echo -n $1','$3
+		if not if (echo -n $* |g '^'$n' 0 '$n' '$n'$') echo -n $1','$3'-#0+#'$4'-#1'
+		if not if (echo -n $* |g '^'$n' '$n' 0 0$') echo -n $1'-#0+#'$2'-#1,'$1
+		if not if (echo -n $* |g '^'$n' '$n' '$n' '$n'$') echo -n $1'-#0+#'$2'-#1,'$3'-#0+#'$4'-#1'
+		if not ! echo 'not a location' >[1=2]
+	}
+}

@@ -1,0 +1,52 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+buf = $TMPDIR/gotypes$pid
+
+ident = '[a-zA-Z_][a-zA-Z_0-9]*'
+
+fn sigexit {rm -f $buf}
+
+switch ($#*) {
+case 0
+	name = '(.)' type = '(.)'
+case 1
+	name = '(.)' type = '('$1')'
+case 2
+	name = '('$1')' type = '('$2')'
+case *
+	die 'unexpected arguments'
+}
+
+# Iterate over both grouped and ungrouped types. When stopping at a
+# grouped type, only consider one-tab idented definitions, thus
+# rejecting definitions inside a struct.
+#
+# To make sure "type := []struct{" is not selected, type blocks
+# spanning multiple lines are selected explicitly.
+#
+grep '\.go$' |
+part grep -l '(^type +|^	)'$ident'( +| *= *).*'$type |
+while (f = `{read}) {
+	ssam -e '{
+		d
+		x/^type *\(([^)].*\n|\n)*\)|^type.*/ {
+			x/(^type +|^	)'$ident'.*/ y/^type +|^	/ g/./ {
+				-#0+/'$ident'/ g/'$name'/ +#0,-+ g/'$type'/ -/'$ident'/ {
+					t $
+					$ a/\n/
+				}
+			}
+		}
+	}' $f >$buf
+
+	if (! ~ `{sed 1q $buf} '') {
+		echo $f
+		cat $buf |mc |sed 's/^/	/'
+	}
+}
+
+exit 0

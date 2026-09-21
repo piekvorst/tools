@@ -1,0 +1,37 @@
+#!/usr/bin/env rc
+ifs='
+'
+
+# FIXME: rename to putsha256sum
+
+# FIXME: maybe putsum sha256sum?
+
+# FIXME: keep the first letter capital to emphasize acmeness.
+
+# FIXME: on empty $* overwrite the file
+
+# NOTE
+#
+# The general form is:
+#
+# sum `{ls -F |grep -v '/$'} >sums
+# for (f in *) if (test -f $f) sum $f >>sums
+#
+# The reverse-engineered purpose of this tool: chord21.
+#
+# The reversal of this command is: delsha256sum.
+
+# FIXME: support other checksums
+
+# FIXME: docs
+
+. 9.rc
+
+files = ()
+for (f in *)	{
+	if (test -f $f && test -r $f)
+		files = ($files $f)
+}
+
+
+sha256sum $files >sha256sums

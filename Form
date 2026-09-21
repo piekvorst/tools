@@ -1,0 +1,55 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# I'd like to merge Formall and Form into a single command. But it
+# leads to the conflict in meaning. Suppose you have Form in the
+# global tag and in a file of unsupported type, possibly called
+# "guide." If you run Form from the the global tag, it infers the
+# current window and formats it. If you run Form from the guide file,
+# it formats all windows of supported type.
+#
+# I could've relied on % environment variable to differentiate
+# between the current window and global tag. But it's a weak
+# abstraction (why should the global tag be special?) and source of
+# confusion.
+#
+# Do this instead: since formatting all windows is more common, let
+# Form do it, but retain Formone to handle those specified by the
+# user. You can't do one thing only, but you can make the most common
+# case the easiest.
+
+# Formats all files in wdir or deeper.
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+ctlfs = '
+	 '
+ctldirty = 5
+
+buf = /tmp/form$pid
+
+fn sigexit {rm -f $buf}
+
+for (winid in `{9p read acme/index |awk '{print $1}'}) {
+	{
+		ctl = `$ctlfs{winread ctl}
+		if (~ $ctl($ctldirty) 0) {
+			switch (`{winname}) {
+			case `{pwd}/*.go
+				if (! Goplsform)
+					touch $buf
+			}
+		}
+	} &
+
+	wgadd wg 10
+}
+
+wgwait wg
+
+if (test -e $buf) exit 1
+if not exit 0

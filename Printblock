@@ -1,0 +1,28 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+wcfs = '
+	 '
+
+left = `$wcfs{winextract '-+,-#0' |wc -c}
+width = `{echo `$wcfs{winextract '+#0-/^./,+#0' |wc -c} - $left |bc}
+
+if (~ $width -*) {
+	echo >[1=2] the 'selection''s' end column is to the left of its start column
+	exit 1
+}
+
+winextract |
+un9 awk \
+	-v left=$left \
+	-v width=$width \
+	'
+		NR == 1 {print substr($0, 1, width)}
+		NR != 1 {print substr($0, 1+left, width)}
+	'

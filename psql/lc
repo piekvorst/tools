@@ -1,0 +1,6 @@
+#!/usr/bin/env rc
+
+. 9.rc
+
+if (~ $#* 0) psql/ls |mc
+if not exec psql/ls $*

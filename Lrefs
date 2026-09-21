@@ -1,0 +1,17 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+GOPATH = `{go env GOPATH}
+
+if (! winid = `{winarg $1}) {
+	echo >[1=2] cannot infer the argument
+	exit args
+}
+
+exec $GOPATH/bin/L refs $*

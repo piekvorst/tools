@@ -1,0 +1,18 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+if (! winread ctl >/dev/null) {
+	echo >[2=1] no window context
+	exit win
+}
+
+if (! ~ $"* '') winlookback $"*
+if not winlookback `''{winextract}
+
+exit 0

@@ -1,0 +1,10 @@
+#!/usr/bin/env rc
+
+. 9.rc
+
+n = '[0-9][0-9]'
+year = '[0-9][0-9][0-9][0-9]'
+yyyymmdd = '('$year'\.'$n'\.'$n'|'$year'-'$n'-'$n'|'$year'/'$n'/'$n')'
+ddmmyyyy = '('$n'\.'$n'\.'$year'|'$n'-'$n'-'$year'|'$n'/'$n'/'$year')'
+
+exec grep $* -e $yyyymmdd'|'$ddmmyyyy

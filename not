@@ -1,0 +1,46 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# not [prefix] comments and uncomments code.
+#
+# The smallest indentation level is used.
+
+. 9.rc
+. lib.rc
+. libstring.rc
+
+progname = `{basename $0}
+
+tmpdir = /tmp/$progname$pid
+mkdir -p $tmpdir
+
+fn sigexit {rm -r $tmpdir}
+
+switch ($#*) {
+case 0
+	prefix = `{samescape '//'}
+case 1
+	prefix = `{samescape $1}
+case *
+	echo >[1=2] too many arguments
+	exit args
+}
+
+fd0 = $tmpdir/fd0
+cat >$fd0
+
+if (! level = `{cat $fd0 |minindent}) {
+	echo >[1=2] minindent failed
+	exit 1
+}
+
+levelpattern = ''
+for (_ in `{seq $level})
+	levelpattern = $levelpattern.
+
+cat $fd0 |
+ssam -e 'x/.*\n/ {
+	g/^'$levelpattern$prefix'/ x/^'$levelpattern$prefix'/ x/'$prefix'/ d
+	v/^'$levelpattern$prefix'/ -#0+#'$level' a/'$prefix'/
+}'

@@ -1,0 +1,42 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+ctlfs = '
+	 '
+ctldirty = 5
+
+buf = $TMPDIR/formgo$pid
+
+fn sigexit {rm -f $buf}
+
+if (! winid = `{winarg $*}) {
+	echo >[1=2] cannot infer the argument
+	exit args
+}
+
+ctl = `$ctlfs{winread ctl}
+if (~ $ctl($ctldirty) 1) {
+	echo >[1=2] window is dirty: `{winname}
+	exit dirty
+}
+
+file = `{winname}
+cat $file >$buf
+
+if (! goimports -w $file) {
+	echo >[1=2] goimports failed
+	exit goimports
+}
+
+if (! cmp -s $file $buf) {
+	winctl get
+	winctl put # trigger Watch, remove hanging "Put"
+}
+
+exit 0

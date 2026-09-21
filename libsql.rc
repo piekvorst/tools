@@ -1,0 +1,25 @@
+#!/hint/rc
+
+# libsql.rc requires libstring.rc
+
+fn sqlstring {echo -n ''''$1''''}
+
+fn chstringarray {
+	arr = () elem = '' s = '' {
+		for (elem)
+			arr = ($arr ''''$elem'''')
+
+		s = `''{stringjoin , $arr}
+		echo -n '['$"s']'
+	}
+}
+
+fn psqlstringarray {
+	arr = () elem = '' s = '' {
+		for (elem)
+			arr = ($arr ''''$elem'''')
+
+		s = `''{stringjoin , $arr}
+		echo -n 'array['$"s']::text[]'
+	}
+}

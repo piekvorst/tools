@@ -1,0 +1,135 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# part exits with 0 if all child commands exit with 0. It exits with
+# 1 if at least one command exits with a non-0 value.
+#
+# -e causes part to stop the processing once the first non-0 exit
+# code is encountered, waiting only for the concurrent jobs to
+# complete.
+#
+# -e also causes any failing command to be printed.
+
+nl = '
+'
+
+tmpdir = /tmp/`{basename $0}$pid
+mkdir -p $tmpdir
+
+maxargs = 500
+maxprocs = 1
+errexit = ''
+
+childrenargs = ()
+childrenfd1 = ()
+childrenfd2 = ()
+childrenstatuses = ()
+
+exitstatus = ''
+
+wg = ()
+
+fn sigexit {rm -r $tmpdir}
+
+fn echo_s {
+	$PLAN9/bin/echo -n $*
+	$PLAN9/bin/echo
+}
+
+fn flush {
+	i = '' {
+		for (i in `{seq $#wg}) {
+			wait $wg($i)
+
+			cat $childrenfd1($i)
+			cat >[1=2] $childrenfd2($i)
+
+			if (test -e $childrenstatuses($i)) {
+				if (! ~ $errexit '')
+					echo_s >[1=2] part: command failed '('`{cat $childrenstatuses($i)}')': `{cat $childrenargs($i)}
+
+				exitstatus = 1
+			}
+		}
+	}
+
+	wg = ()
+
+	v = '' {
+		for (v in childrenargs childrenfd1 childrenfd2 childrenstatuses) {
+			rm -f $$v
+			$v = ()
+		}
+	}
+}
+
+flagfmt = 'e,n maxargs,p maxprocs'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit
+}
+
+if (! ~ $flage '')
+	errexit = 1
+
+if (! ~ $flagp '') {
+	if (~ $flagp *''$nl''* || ~ $flagp 0 *[~0-9]*) {
+		echo_s >[1=2] flag p is invalid: $flagp
+		exit 1
+	}
+
+	maxprocs = $flagp
+}
+
+if (! ~ $flagn '') {
+	if (~ $flagn *''$nl''* || ~ $flagn 0 *[~0-9]*) {
+		echo_s >[1=2] maxargs is invalid: $flagn
+		exit 1
+	}
+
+	maxargs = $flagn
+}
+
+if (~ $#* 0) {
+	echo_s >[1=2] no command
+	exit 1
+}
+
+readstatus = ''
+
+while (
+	{~ $errexit '' || ~ $exitstatus ''} &&
+	~ $readstatus ''
+) {
+	files = `{$PLAN9/bin/read -n $maxargs}
+	readstatus = $status
+
+	if (! ~ $#files 0) {
+		args = $tmpdir/args-$#childrenargs
+		fd1 = $tmpdir/fd1-$#childrenfd1
+		fd2 = $tmpdir/fd2-$#childrenfd2
+		childstatus = $tmpdir/status-$#childrenstatuses
+
+		childrenargs = ($childrenargs $args)
+		childrenfd1 = ($childrenfd1 $fd1)
+		childrenfd2 = ($childrenfd2 $fd2)
+		childrenstatuses = ($childrenstatuses $childstatus)
+
+		{
+			echo_s $* $files >$args
+			$* $files </dev/null >$fd1 >[2]$fd2
+			s = $status
+
+			if (! ~ $s '')
+				echo_s $s >$childstatus
+		} &
+		wg = ($wg $apid)
+
+		if (~ $#wg $maxprocs)
+			flush
+	}
+}
+
+flush
+exit $exitstatus

@@ -1,0 +1,17 @@
+#!/usr/bin/env rc
+
+# FIXME: should be a function
+# FIXME: add docs from Go's slices.Max
+
+. lib.rc
+
+if (~ $* '')
+	die 'max: no args'
+
+max = $1
+for (v in $*(2-)) {
+	if (test $v -gt $max)
+		max = $v
+}
+
+echo -n $max

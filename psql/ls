@@ -1,0 +1,22 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# psql/ls copies /bin/ls typographical semantics: short by default,
+# details with args.
+
+. 9.rc
+
+fn escape {sed 's/"/""/g'}
+
+if (~ $#* 0) {
+	echo '\dt' |
+	psql |
+	awk '/^Name/ {print $3}'
+}
+if not {
+	{{for (arg) echo $arg} |sed 's:^'`{pwd}'/::'} |
+	escape |
+	sed 's/.*/\\d "&"/' |
+	psql
+}

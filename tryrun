@@ -1,0 +1,14 @@
+#!/usr/bin/env rc
+
+if (~ $#* 0)
+	exit 0
+
+$*
+s = $status
+
+if (! ~ $s '') {
+	echo >[1=2] tryrun: command failed '('$s')': $*
+	exit $s
+}
+
+exit 0

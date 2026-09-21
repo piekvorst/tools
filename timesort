@@ -1,0 +1,21 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+flagfmt = 'a,b,c,m'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+if (! ~ $flaga '') statfmt = '%X	%n'
+if not if (! ~ $flagb) statfmt = '%W	%n'
+if not if (! ~ $flagc) statfmt = '%Z	%n'
+if not if (! ~ $flagm) statfmt = '%Y	%n'
+if not statfmt = '%Y	%n'
+
+part stat -c $statfmt |
+sort -nr |
+sed 's/^[^	]*	//'

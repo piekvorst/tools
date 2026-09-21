@@ -1,0 +1,33 @@
+#!/usr/bin/env rc
+
+fn run {
+
+	# add empty tag list if it does not exist, avoiding comments
+	# and embedded structs
+	#
+	e1 = 'x/.+/ y|[	 ]*//.*| g/[a-zA-Z_0-9] +[^ ]/ v/`/ a/ ``/'
+
+	# add a tag to the end of the list
+	#
+	e2 = 'x/`[^`]*`/ {
+		g/.../ v/'$1':/ +#0-#1 c/ '$1':""/
+		v/.../ -#0+#1 c/'$1':""/
+	}'
+
+	# copy struct field to the tag
+	#
+	e3 = 'x/"[^"]*"/ v/.../ -+/[^	 ]+/ t -#0+#1'
+
+	e4 = 'x/`'$1':"[a-zA-Z_][a-zA-Z_0-9]*"`/ |camel -s'
+
+	ssam -e $e1 |
+	ssam -e $e2 |
+	ssam -e $e3 |
+	ssam -e $e4
+}
+
+rc = cat
+for (tag)
+	rc = $rc' |run '$tag
+
+eval $rc

@@ -1,0 +1,8 @@
+#!/usr/bin/env rc
+
+. 9.rc
+
+git log --name-only --author=`{git config user.email} --pretty=format: |
+grep . |
+sort |
+uniq

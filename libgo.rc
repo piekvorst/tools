@@ -1,0 +1,21 @@
+# libgo.rc requires 9.rc and lib.rc
+
+fn go_binaries {@ {
+	if (rc -c 'whatis go' >/dev/null >[2=1]) {
+		GOBIN = `{go env GOBIN}
+		GOPATH = `{go env GOPATH}
+	}
+
+	if (! ~ $GOBIN '') {
+		echo_s $GOBIN
+	}
+	if not if (! ~ $GOPATH '') {
+		echo_s $GOPATH |
+		sed 's/:/\n/g' |
+		sed 1q |
+		sed 's!$!/bin!'
+	}
+	if not {
+		echo_s $home/go/bin
+	}
+}}

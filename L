@@ -1,0 +1,294 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# L - grep wrapper for Acme.
+#
+# When L is run without arguments, it searches for selected text in
+# the working directory. When run with exactly one argument
+# (typically a file path provided via the 2-1 chord), it searches for
+# the selected text in the directory of the provided argument.
+#
+# When run with more than one argument:
+#
+# L [-i] pattern [file ...]
+#
+# L [-i] -e pattern [file ...]
+#
+# The searches are always recursive.
+#
+# L aims for a fluid search workflow. Its syntax allows the user to
+# search for any selected text in any visible path, using only the
+# mouse. Unlike using grep -r, L creates a dedicated window, making
+# it easier to edit the query, work on regions, and go back.
+#
+# If no text is selected, L uses the surrounding word, defined as
+# [a-zA-Z_0-9]+. The initial query is always case sensitive. It then
+# builds the appropriate grep command, placing it in the search
+# window's tag, and processes the results:
+#
+# . If only one match is found, L opens the file directly, skipping
+# the search window.
+#
+# . If matches appear in one or more files, L shows the first file
+# along with its matching lines (only if lines fit within 150
+# characters), so the first match is ready to be opened with
+# button-3.
+#
+# . Files without matches are hidden but preserved in the undo
+# history.
+#
+# L tries to predict the most useful form of the command in the tag:
+#
+# . If more than one file is found, L writes the command with the -n
+# flag to the tag, so the user can see matches within a specific
+# file.
+#
+# . -n is not useful if only one match is found, so L places -l
+# instead, allowing the user to undo the filtering, edit the query,
+# and get a clean list of files for the new search.
+#
+# . For the same reason, it puts -l if no files were found.
+#
+# . If the number of files exceeds $maxargs, L writes a command that
+# uses xargs to the tag, ensuring the search runs within the system's
+# argument limit.
+#
+# L will not run grep if the total size of the files to be searched
+# exceeds $maxkbytes.
+
+# FIXME: print -n when a single file doesn't expand due to size limit
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+ctlfs = '
+	 '
+ctlid = 1
+
+wcfs = '
+	 '
+
+if (~ $TMPDIR '')
+	TMPDIR = /tmp
+
+buf = $TMPDIR/l$pid.`{seq 5}
+bufbody = $buf(1)
+bufgrep = $buf(2)
+bufgrepn = $buf(3)
+buflines = $buf(4)
+bufkbytes = $buf(5)
+touch $buf
+
+# User input
+#
+name = ''
+query = ''
+grep = grep
+files = ()
+
+# FIXME: move to mktag
+#
+switch (`{uname}) {
+case Linux
+	xargs = (xargs -d ''''\n'''')
+case Darwin
+	xargs = (gxargs -d ''''\n'''')
+case *
+	xargs = ()
+}
+
+fn sigexit {rm -f $buf}
+
+# FIXME: simplify the control flow
+#
+fn mktag {
+	nfiles = `$wcfs{cat $bufgrep |sed 2q |wc -l} \
+	s = `{
+		if (test `{cat $buflines} -gt $maxargs)
+			echo $xargs
+
+		echo 9
+		echo $grep
+
+		if (~ $nfiles 0 1) echo -n -l
+		if not if (! ~ $query '' && test `{cat $bufkbytes} -lt $maxkbytes) echo -n -n
+		if not echo -n -l
+		echo
+
+		if (~ $query *[~a-zA-Z_0-9]*) echo -n ''''`{echo -n $query |sed 's/''/''''/g'}''''
+		if not if (! ~ $query '') echo -n $query
+		if not echo -n foo
+		echo
+
+		echo /dev/null
+
+		if (test `{cat $buflines} -le $maxargs)
+			echo '`{cat}'
+	} echo -n :, '|'$"s |winwrite tag
+}
+
+fn xname {@ {
+	if (! test $winid -gt 0 >[2]/dev/null) dir = `{pwd}
+	if not if (test -d `{winname}) dir = `{winname}
+	if not dir = `{basename -d `{winname}}
+
+	nextwinname $dir grep
+}}
+
+fn xquery {
+	winwordaddr >/dev/null
+	query = `{winread xdata |sed 1q |sed 's/^[	 ]*//;s/[	 ]*$//'}
+	query = $"query
+
+	if (~ $query *[~a-zA-Z_0-9]*)
+		query = '*'$query
+}
+
+if (~ $maxkbytes '') {
+	maxkbytes = 1000000
+}
+if not if (! ~ `{echo -n $maxkbytes |grep -c '^[0-9]+$'} 1) {
+	echo >[1=2] maxkbytes is invalid: $maxkbytes
+	exit env
+}
+
+if (~ $maxargs '') {
+	maxargs = 1000
+}
+if not if (! ~ `{echo -n $maxargs |grep -c '^[0-9]+$'} 1) {
+	echo >[1=2] maxargs is invalid: $maxargs
+	exit env
+}
+
+switch ($#*) {
+case 0
+	name = `{xname}
+	xquery
+	files = .
+case 1
+	if (test -f $1) dir = `{basename -d $1}
+	if not if (test -d $1) dir = $1
+	if not if (! test -e $1 && test -d `{basename -d $1}) dir = `{basename -d $1}
+	if not {
+		echo >[1=2] $1 is neither a file, directory, or +Errors
+		exit args
+	}
+
+	name = `{nextwinname $dir grep}
+
+	cd `{basename -d $name}
+
+	xquery
+
+	files = .
+case *
+	name = `{xname}
+
+	flagfmt = 'i,e pattern'
+	if (! eval `''{getflags >[2=1] $*}) {
+		usage
+		exit usage
+	}
+
+	if (! ~ $flagi '')
+		grep = ($grep -i)
+
+	if (! ~ $flage '') {
+		query = $flage
+	}
+	if not if (! ~ $1 '') {
+		query = $1
+		* = $*(2-)
+	}
+	if not {
+		echo >[1=2] syntax error
+		exit args
+	}
+
+	if (! ~ $* '') files = $*
+	if not files = .
+}
+
+dotify files
+
+name = `{cleanname -d `{pwd} $name}
+
+for (f in $files) {
+	if (! test -r $f) {
+		echo >[1=2] $f is not readable
+		exit io
+	}
+}
+
+{
+	find $files -type f |sed 's!^(\./)*!!' |sort >$bufbody
+	cat $bufbody |wc -l |awk '{print $1}' >$buflines
+} &
+
+echo 0 `{du -s $files |awk '{print "+", $1}'} |bc >$bufkbytes &
+
+wait
+
+# keep only matching files
+#
+if (! ~ $query '' && test `{cat $bufkbytes} -lt $maxkbytes) {
+
+	cat $bufbody |part $grep -l -e $query /dev/null >$bufgrep
+
+	# If exactly one match exists, open it immediately.
+	#
+	if (~ `$wcfs{cat $bufgrep |sed 1q |wc -l} 1) {
+		$grep -n $query /dev/null `{cat $bufgrep} >$bufgrepn
+		if (~ `$wcfs{sed 2q $bufgrepn |wc -l} 1) {
+			f = `{cat $bufgrepn |sed 's/^(([^:]|:[^1-9])*):[1-9][0-9]*:.*/\1/'} \
+			n = `{cat $bufgrepn |sed 's/^([^:]|:[^1-9])*:([1-9][0-9]*):.*/\2/'} {
+				plumb $f
+				winid = `{findwindow $f}
+				winaddr $n
+				winctl dot=addr
+				winctl show
+			}
+			exit 0
+		}
+	}
+}
+
+ctl = `$ctlfs{9p read acme/new/ctl}
+winid = $ctl($ctlid)
+
+mktag
+
+winctl name $bufbody
+winctl get
+winctl name $name
+winctl clean
+
+winaddr ,
+winctl dot=addr
+winctl show
+
+if (! ~ $query '' && test `{cat $bufkbytes} -lt $maxkbytes) {
+	winreplace cat $bufgrep
+	winaddr 1
+	winctl dot=addr
+
+	if (
+		! ~ `$wcfs{cat $bufgrep |sed 2q |wc -l} 0 &&
+		test `{
+			$grep -n $query /dev/null `{cat $bufgrep |sed 1q} |
+			tr -d '\x0' |
+			awk '{print length}' |
+			sort -nr |
+			sed 1q
+		} -le 150
+	) {
+		winreplace $grep -n $query /dev/null `{cat $bufgrep |sed 1q}
+	}
+
+	winctl show
+}
+
+exit 0

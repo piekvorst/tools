@@ -1,0 +1,9 @@
+#!/usr/bin/env rc
+
+# FIXME: docs
+
+# FIXME: make sure it errs on errors
+
+# FIXME: curl does not seem to respect headers, even when told so
+
+exec curl --silent --remote-name $*

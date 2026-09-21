@@ -1,0 +1,33 @@
+# libtime.rc requires 9.rc and lib.rc
+
+datefs = ':
+	 '
+datedayofweek = 1
+datemonth = 2
+dateday = 3
+datehour = 4
+datemin = 5
+datesec = 6
+datetz = 7
+dateyear = 8
+
+fn nmonth {@ {
+	switch (`{echo $1 |tr A-Z a-z}) {
+	case jan; echo 1
+	case feb; echo 2
+	case mar; echo 3
+	case apr; echo 4
+	case may; echo 5
+	case jun; echo 6
+	case jul; echo 7
+	case aug; echo 8
+	case sep; echo 9
+	case oct; echo 10
+	case nov; echo 11
+	case dec; echo 12
+
+	case *
+		echo_s >[1=2] unexpected month: $1
+		exit 1
+	}
+}}

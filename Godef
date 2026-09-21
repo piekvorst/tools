@@ -1,0 +1,29 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+if (! winid = `{winarg $*}) {
+	echo >[1=2] cannot infer the argument
+	exit args
+}
+
+if (! file = `{
+	gopls definition `{winname}':#'`{winbyte |awk '{print $1}'} |
+	sed -n 1p |
+	sed 's/: *defined +here +as.*//'
+}) {
+	echo >[1=2] gopls failed
+	exit gopls
+}
+
+f = `{locsimplify $file |sed 's/:[1-9][0-9]*$//'}
+plumb $f
+winid = `{findwindow $f}
+winaddr `{locsimplify $file |sed -n 's/.*:([1-9][0-9]*)$/\1/p'}
+winctl dot=addr
+winctl show

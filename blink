@@ -1,0 +1,14 @@
+#!/usr/bin/env rc
+
+# FIXME: blink only once, switching the present status
+# FIXME: is it really useful?
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+
+while () {
+	winctl dirty
+	sleep 1
+	winctl clean
+	sleep 1
+}

@@ -1,0 +1,17 @@
+#!/usr/bin/env rc
+
+# FIXME: should be a function
+# FIXME: add docs from Go's slices.Min
+
+. lib.rc
+
+if (~ $* '')
+	die 'min: no args'
+
+min = $1
+for (v in $*(2-)) {
+	if (test $v -lt $min)
+		min = $v
+}
+
+echo -n $min

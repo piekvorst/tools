@@ -1,0 +1,19 @@
+#!/usr/bin/env rc
+
+# FIXME: should be a function in libstring.rc
+# FIXME: mention the alternative: cleanname -d `{pwd}
+# FIXME: should be either one-argument or list-based. Otherwise echo mangles newlines.
+
+. 9.rc
+
+{
+	for (s in $*(2-)) {
+		echo -n $s
+		echo
+	}
+} |awk -v prefix=$1 '{
+	if (substr($0, 1, length(prefix)) == prefix)
+		print substr($0, 1+length(prefix));
+	else
+		print $0;
+}'

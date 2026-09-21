@@ -1,0 +1,271 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+
+nl = '
+'
+
+bufdir = $TMPDIR/lor$pid
+bufdone = $bufdir/done
+
+curl = (curl --fail-with-body --location --no-progress-meter)
+
+wgreactionlimit = 10
+wgpagelimit = 5
+
+emoji = '(☕|👍|👎|🔥|😊|😱|🤔|🤡|🤦|🪗)'
+seriousemoji = '(👎|😱|🤔|🤡|🤦|🪗)'
+
+# flags
+#
+verbose = ''
+allemoji = ''
+
+fn sigexit {rm -fr $bufdir}
+
+fn authors {
+	page = $1 {
+		ssam -e '{
+			d
+			x!<a[	 ][^>]*itemprop="creator"[^>]*>! {
+				x!"/people/[^/]*/profile"! y!"/people/|/profile"! g/./ {
+					t $
+					$ a/\n/
+				}
+			}
+		}' |
+		{
+			if (~ $page 0) cat
+			if not tail +2
+		} |
+		sort |
+		uniq
+	}
+}
+
+fn reactions {
+	page = $1 \
+	body = $2 \
+	topic = $3 \
+	reactiondir = $4 \
+	voterdir = $5 \
+	messages = () \
+	m = '' \
+	i = 0 \
+	wgreactions = () {
+		cat $body |
+		ssam -e '{
+			d
+			x {
+				g/<article .*class="msg"/ t $
+				g/<div .*class="[^"]*reactions[^"]*"/ v/zero-reactions/ t $
+			}
+		}' |
+		ssam -e '{
+			d
+			x {
+				g/article/ + g/reactions/ - x/id="comment-([^"]+)"/ {
+					-#0+/id="comment-/+/[^"]*/ {
+						$ a!https://www.linux.org.ru/reactions?topic='$topic'&comment=!
+						t $
+						$ a/\n/
+					}
+				}
+			}
+		}' |
+		{
+			messages = `{cat}
+			if (! ~ $#messages 0 && ! ~ $verbose '')
+				echo >[1=2] processing $#messages messages with reactions
+
+			for (m in $messages) {
+				i = `{echo $i + 1 |bc}
+				{
+					touch $reactiondir/$i $voterdir/$i
+
+					headers = $bufdir/reactionheaders$page.$i
+					body = $bufdir/reactionbody$page.$i
+					reactioncurl = ($curl -D $headers -o $body)
+
+					if (! $reactioncurl -- $m) {
+						echo >[1=2] curl failed at $m
+						exit curl
+					}
+
+					cat $body |
+					ssam -e '{
+						d
+						0+/<div [^>]*class="([^" ]* +)?reactions[" ]/+//, {
+							x/('$emoji')|<[^>]*>/ {
+								v/</ t $
+								x/<a [^>]*>/ x!people/[^/]+/profile! y!.*people/|/profile.*! g/./ {
+									t $
+									$ a/\n/
+								}
+							}
+						}
+					}' |
+					{
+						if (~ $allemoji '') grep -e $seriousemoji
+						if not cat
+					} |
+					for (r in `{cat}) {
+						echo $r >>$reactiondir/$i
+						echo $r >>$voterdir/$i
+					}
+
+					reactions = `{cat $reactiondir/$i}
+					if (! ~ $reactions '') {
+						{
+							echo $m
+							echo $nl$reactions |sed 's/ *$//' |tail +2 |mc
+						} >$reactiondir/$i
+					}
+
+					voters = `{cat $voterdir/$i}
+					if (! ~ $voters '') {
+						echo $nl$voters |
+						sed 's/ *$//' |
+						tail +2 |
+						sed 's/^('$emoji')*//' >$voterdir/$i
+					}
+				} &
+				wgadd wgreactions $wgreactionlimit
+			}
+		}
+
+		wgwait wgreactions
+	}
+}
+
+fn printallsubmitters {
+	_bodies = $$1 \
+	_voters = $$2 \
+	submitters = () \
+	page0authors = () \
+	b = '' \
+	v = '' {
+		submitters = `{
+			{
+				for (b in $_bodies) {
+					if (test -e $b)
+						cat $b
+				} |
+				authors 0
+
+				for (v in $_voters) {
+					if (ls $v/* >/dev/null >[2=1])
+						cat $v/*
+				}
+			} |
+			sort |
+			uniq
+		}
+
+		page0authors = `{cat $_bodies(1) |authors 0}
+
+		if (! ~ $#submitters $#page0authors)
+			echo $nl$submitters |sed 's/ *$//' |tail +2 |mc
+	}
+}
+
+mkdir $bufdir
+
+if (! rememberme = `{gpgdecrypt $home/pass/web/linux.org.ru/rememberme </dev/null >[2]/dev/null |sed 1q}) {
+	echo >[1=2] failed to decrypt rememberme
+	exit gpg
+}
+
+if (! ~ $rememberme '')
+	curl = ($curl -b remember_me=$rememberme)
+
+flagfmt = 'e,v'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+if (! ~ $flage '')
+	allemoji = 1
+
+if (! ~ $flagv '')
+	verbose = 1
+
+# Lor does not remove /page123456789 if query is present.
+#
+if (! url = `{trurl --verify --qtrim '*' -- $1}) {
+	echo >[1=2] invalid url
+	exit args
+}
+
+pagebodies = ()
+pagefmtbodies = ()
+pagereactions = ()
+pagevoters = ()
+
+stop = ''
+page = 0
+
+while (~ $stop '') {
+	pagebodies = ($pagebodies $bufdir/body$page)
+	pagefmtbodies = ($pagefmtbodies $bufdir/fmtbody$page)
+	pagereactions = ($pagereactions $bufdir/reactions$page)
+	pagevoters = ($pagevoters $bufdir/voters$page)
+
+	headers = $bufdir/headers$page \
+	body = $pagebodies($#pagebodies) \
+	fmtbody = $pagefmtbodies($#pagefmtbodies) \
+	reactions = $pagereactions($#pagereactions) \
+	voters = $pagevoters($#pagevoters) {
+		pagecurl = ($curl -D $headers -o $body)
+
+		pageurl = $url/page$page
+
+		if (! eurl = `{$pagecurl -w '%{url_effective}' -- $pageurl}) {
+			echo >[1=2] curl failed at $pageurl
+			echo 0 >$bufdone
+			exit curl
+		}
+
+		if (echo -n $eurl |! grep -s '/page'$page'$') {
+			rm $body
+			echo 1 >$bufdone
+			exit 0
+		}
+
+		{
+			echo $pageurl
+			cat $body |authors $page |mc
+		} >$fmtbody
+
+		mkdir $reactions $voters
+		reactions $page $body `{basename $url} $reactions $voters
+	} &
+	wgadd wgpage $wgpagelimit
+
+	page = `{echo $page + 1 |bc}
+	if (~ $stop '' && test -e $bufdone)
+		stop = 1
+}
+
+wgwait wgpage
+
+if (! ~ `{cat $bufdone} 1)
+	exit 1
+
+printallsubmitters pagebodies pagevoters
+
+for (b in $pagefmtbodies) {
+	if (test -e $b)
+		cat $b
+}
+
+for (r in $pagereactions) {
+	if (ls $r/* >/dev/null >[2=1])
+		cat `{ls $r/* |sort -n}
+}
+
+exit 0

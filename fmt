@@ -1,0 +1,113 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+
+* = ($PLAN9/bin/fmt $*)
+
+if (~ $TMPDIR '')
+	TMPDIR = /tmp
+
+fmtbuf = $TMPDIR/fmt$pid
+fmtcbuf = $TMPDIR/fmtc$pid
+
+# Plan 9 fmt treats tabs as $tabstop characters long, and replaces
+# $tabstop spaces with a tab.
+#
+tabstop = 4
+
+fn sigexit {rm -f $fmtbuf $fmtcbuf}
+
+fn g {grep $* >/dev/null}
+fn v {grep -v $* >/dev/null}
+
+# The difference between '//hello' and '// hello' is subtle but it
+# takes effort to preserve this subtlety in space-indented input: one
+# cannot be interpreted in terms of the other. Further, they cannot
+# be mixed within the same input: fmtc wouldn't know which rule to
+# apply.
+#
+# unify enables us to both handle only one case and be able to mix
+# the two within the same input.
+#
+# One more subtlety is broken: fmt doesn't join lines on different
+# levels of indentation. Thus, 'foo' and '.bar' (one space) are
+# joined, but 'foo' and '..bar' (two spaces) are not. Again, the
+# benefits of integration outweigh benefits of differentiation.
+#
+fn unify {sed 's|(^[	 ]*//)([^ ])|\1 \2|'}
+
+# keepempty reverses fmt removing indentation from empty lines.
+#
+# It doesn't pursue any heuristic to somehow handle inputs mixing
+# multiple indentations.
+#
+fn keepempty {
+	ssam -e 'x/^$/ {
+		-/^[	 ]*/ t .
+		a|//|
+	}'
+}
+
+# fmtany lets fmtc focus on only one case.
+#
+# Sure, it may be worth treating // and # separately due to the
+# difference in length and indentation, but the difference is too
+# subtle to care. The benefits of integration outweigh the benefits
+# of differentiation.
+#
+fn fmtany {sed 's|^([	 ]*)'$1'|\1//|' |$*(2-) |sed 's|^([	 ]*)//|\1'$1'|'}
+
+# fmtc leverages fmt preserving indentation to temporarily replace
+# comments with spaces, fmt, and bring the comments back.
+#
+# It rejects input containing non-comment lines.
+#
+# It supports both tab and space-indented comments but rejects input
+# mixing the two.
+#
+# Space-indented comments with inner space indentation (more than two
+# spaces) cause the input to be rejected. Due to the nature of the
+# process (comments temporarily become spaces), fmtc has no way to
+# tell where one indentation ends and the other begins. Similarly,
+# tab-indented comments with inner tab indentation cause the input to
+# be rejected as well.
+#
+# fmt converts space indentation to tab, thus breaking space-indented
+# comments. This behavior is reversed.
+#
+fn fmtc {
+	unify |buf = $fmtcbuf {
+		cat >$buf
+
+		if (v '^[	 ]*//' $buf) {
+			! echo -n
+		}
+		if not if (! v '^	*//' $buf && ! g '^	*//.[	 ]*	' $buf) {
+			cat $buf |
+			sed 's|^(	*)//|\1  |' |
+			$* |
+			sed 's|^(	*)  |\1//|'
+		}
+		if not if (! v '^ *//' $buf && ! g '^ *//.[	 ]* ' $buf) {
+			cat $buf |
+			sed 's|^( *)//|\1  |' |
+			$* |
+			ssam -e 'x/^	*/ x/	/ c/    /' |
+			sed 's|^( *)   |\1// |'
+		}
+		if not {
+			! echo -n
+		}
+	} |keepempty
+}
+
+buf = $fmtbuf
+cat >$buf
+
+if (! v '^[	 ]*//' $buf) cat $buf |fmtc $*
+if not if (! v '^[	 ]*#' $buf) cat $buf |fmtany '#' fmtc $*
+if not if (! v '^[	 ]*--' $buf) cat $buf |fmtany '--' fmtc $*
+if not cat $buf |$*

@@ -1,0 +1,8 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# Make chromium silent for calls from plumber.
+
+/usr/bin/chromium $* |
+9 grep -v '^Opening in existing browser session.$'

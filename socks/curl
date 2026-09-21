@@ -1,0 +1,2 @@
+#!/usr/bin/env rc
+exec /usr/bin/curl --socks5-hostname localhost:1080 $*

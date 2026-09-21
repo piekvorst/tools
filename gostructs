@@ -1,0 +1,18 @@
+#!/usr/bin/env rc
+
+. 9.rc
+
+identifier = '[a-zA-Z_][a-zA-Z_0-9]*'
+
+grep '\.go$' |
+grep -v 'mock|\.pb\.' |
+grep -l '(^type +|^[	 ]*)'$identifier' +struct *{' `{cat} |
+for (f in `{cat}) {
+	echo $f
+	awk '
+		/^type +'$identifier' +struct *{/ {print $2}
+		/^[	 ]*'$identifier' +struct *{/ {print $1}
+	' $f |
+	mc |
+	sed 's/^/	/'
+}

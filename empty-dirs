@@ -1,0 +1,14 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+if (~ $* '')
+	* = .
+
+paths = ()
+for (v)
+	paths = ($paths `{cleanname -d `{pwd} $v})
+
+comm -23 <{find $paths -type d |sort} <{find $paths |sed 's!/[^/]+$!!' |sort |uniq}

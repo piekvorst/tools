@@ -1,0 +1,23 @@
+#!/usr/bin/env rc
+
+# comment+ moves inline comments above and adds an empty line before
+# comment blocks if they do not have it.
+#
+# Additionally, it assumes that comment blocks belong to a single
+# line and adds an empty line after that line. This happens in struct
+# definitions.
+
+exec ssam -e 'x![^	 /].*//.*$|(^[	 ]*//.*\n)+! {
+	g![^	 /].*//.*$! -+ {
+		d
+		-#0+/^[	 ]*/ t +#0
+		-#0+/\/\/.*$/ t +#0
+		+#0 a/\n/
+		.,-#0+/[	 ]*\/\/.*$/-#0 t +#0
+		+#0 a/\n\n/
+	}
+	g!(^[	 ]*//.*\n)+! {
+		- g/./ + i/\n/
+		++ g/./ v!^[	 ]*//! i/\n/
+	}
+}'

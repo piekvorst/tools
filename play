@@ -1,0 +1,6 @@
+#!/usr/bin/env rc
+switch ($*) {
+case -; playerctl previous
+case +; playerctl next
+case *; playerctl play-pause
+}

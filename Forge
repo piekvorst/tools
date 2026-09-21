@@ -1,0 +1,68 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+. libgit.rc
+
+if (! winid = `{winarg $*}) {
+	echo >[1=2] cannot infer the argument
+	exit args
+}
+
+if (test ! -f `{winname} -a ! -d `{winname}) {
+	echo >[1=2] neither file nor directory: `{winname}
+	exit file
+}
+
+cd `{basename -d `{winname}}
+
+if (! git rev-parse --is-inside-work-tree >/dev/null >[2=1]) {
+	echo >[1=2] not inside a git work tree
+	exit wdir
+}
+
+if (! remote = `{git ls-remote --get-url}) {
+	echo >[1=2] no remote url
+	exit url
+}
+
+# Guard against empty repo.
+#
+if (! git rev-parse --short HEAD >/dev/null) {
+	echo >[1=2] HEAD is unresolvable
+	exit git
+}
+
+if (! baseremote = `{githttpurl $remote}) {
+	echo >[1=2] could not determine remote host and path
+	exit url
+}
+
+baseremote = `{echo -n $baseremote |sed 's/\.git$//'}
+
+url = ''
+
+if (test -f `{winname}) {
+	fn mkurl {echo $1'/blob/'$2'/'$3'#L'$4}
+
+	url = `{
+		mkurl `{
+			echo -n $baseremote; echo
+			git rev-parse --short HEAD
+			cutprefix `{git rev-parse --show-toplevel}/ `{winname}
+			winline |sed 's/[	 ]+/-/'
+		}
+	}
+}
+if not if (test -d `{winname}) {
+	fn mkurl {echo $1'/tree/'$2'/'$3}
+
+	dir = `{cutprefix `{git rev-parse --show-toplevel}/ `{winname}}
+	url = `{mkurl $baseremote `{git rev-parse --short HEAD} $"dir}
+}
+
+plumb $url

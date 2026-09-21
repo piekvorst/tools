@@ -1,0 +1,28 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+if (! files = `{
+	gopls rename -list -write `{winname}':#'`{winbyte |awk '{print $1}'} $1
+}) {
+	echo >[1=2] gopls failed
+	exit gopls
+}
+
+for (f in $files) {
+	{
+		if (winid = `{findwindow $f}) {
+			winctl get
+			winctl put # trigger Watch, remove hanging "Put"
+		}
+	} &
+
+	wgadd wg 10
+}
+
+wgwait wg

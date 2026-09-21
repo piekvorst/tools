@@ -1,0 +1,22 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+table = $1
+column = $2
+command = $*(3-)
+
+echo 'show tables;' |
+$command |
+grep -i $table |
+sed 'p;s/.*/describe &;/' |
+while (t = `{read}) switch ($t) {
+case describe*
+	echo $t |
+	$command |
+	grep -i $column
+case *
+	echo $t
+}

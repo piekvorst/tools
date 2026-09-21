@@ -1,0 +1,121 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+. libtime.rc
+
+progname = `{basename $0}
+
+darwinsnarf = `''{cat <<'!'}
+on run args
+	set the clipboard to POSIX file (first item of args)
+end
+!
+
+defaultscrdir = $home/img/scr
+
+defaultrecdir = $home/vid/rec
+
+fn videoaudio {@ {
+	name = $progname-`{basename $1}
+
+	switch (`{uname}) {
+	case Darwin
+		win -n $name screencapture -gvx -- $1
+	case Linux
+		win -n $name ffmpeg \
+			-loglevel warning \
+			-framerate 30 \
+			-f x11grab -i $DISPLAY \
+			-f pulse -i default \
+			-f pulse -i `{pactl get-default-sink}.monitor \
+			-filter_complex '[1:a][2:a]amix=inputs=2[a]' -map 0:v -map '[a]' \
+			$1
+	}
+}}
+
+fn image {
+	switch (`{uname}) {
+	case Darwin
+		screencapture -iox -- $1
+	case Linux
+		maim --quiet --select -- $1
+	}
+}
+
+if (! ~ `{uname} Darwin Linux) {
+	echo_s >[2=1] unsupported platform
+	exit 1
+}
+
+if (~ $scrdir '')
+	scrdir = $defaultscrdir
+
+if (~ $recdir '')
+	recdir = $defaultrecdir
+
+for (dir in $scrdir $recdir) {
+	if (! mkdir -p $dir) {
+		echo_s >[1=2] failed to create directory: $dir
+		exit 1
+	}
+}
+
+flagfmt = 'r'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit 1
+}
+
+dir = ''
+ext = ''
+if (! ~ $flagr '') {
+	dir = $recdir
+	ext = mp4
+}
+if not {
+	dir = $scrdir
+	ext = png
+}
+
+now = `$datefs{date}
+year = $now($dateyear)
+month = `{nmonth $now($datemonth)}
+month = `{awk -v n=$month 'BEGIN {printf("%02d\n", n)}'}
+day = $now($dateday)
+
+index = `{
+	ls $dir |
+	sed -n 's!.*/'$year'-'$month'-'$day'-([0-9]*)\.'$ext'$!\1!p' |
+	sort -nr |
+	sed 1q
+}
+
+if (! ~ $index '') index = `{echo_s $index + 1 |bc}
+if not index = 1
+
+index = `{awk -v i=$index 'BEGIN {printf("%03d\n", i)}'}
+
+file = $dir/$year-$month-$day-$index.$ext
+
+if (! ~ $flagr '') videoaudio $file
+if not image $file
+
+if (! test -f $file) {
+	echo_s >[1=2] screenshot was not taken
+	exit 1
+}
+
+echo_s $file
+
+switch (`{uname}) {
+case Darwin
+	osascript -e $darwinsnarf $file
+case Linux
+	if (~ $ext png)
+		xclip -selection clipboard -t image/png $file
+}
+
+exit 0

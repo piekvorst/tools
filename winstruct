@@ -1,0 +1,150 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# PROBLEMS
+#
+# . If the user deletes the win window too early, the sleep loop
+# would stay. I could've put ps |grep -s $winpid, but it's
+# broken, too: if the win exits too early, the loop wouldn't
+# acquire the window ID. A better synchronization is required.
+#
+# . win-run blocks until the command is done, preserving win
+# semantics, but it needs a way of sending winid to the caller,
+# which is known while the command is running. I don't know if
+# there's a way to meet both ends elegantly in shell.
+#
+# . FIXME: -i should take input from /dev/fd0
+#
+# . FIXME: rename to win-run
+
+pkeys = `{printenv_s}
+for (k in $pkeys)
+	pvalues$k = $$k
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+progname = `{basename $0}
+
+ctlfs = '
+	 '
+ctlid = 1
+
+tmpdir = /tmp/$progname$pid
+mkdir -p $tmpdir
+
+tmpinput = $tmpdir/input
+tmpsecretid = $tmpdir/secretid
+tmpstatus = $tmpdir/status
+
+inputwinid = ''
+
+fn sigexit {rm -r $tmpdir}
+
+flagfmt = 'c,s,w,i input,n name,t tag,f font'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+secret = ''
+if (! ~ $flags '')
+	secret = `''{cat}
+
+input = ''
+if (! ~ $flagi '')
+	input = $flagi
+
+name = ''
+if (! ~ $flagn '') name = $flagn
+if not name = `{hostname}
+
+tag = ''
+if (! ~ $flagt '')
+	tag = $flagt
+
+font = ''
+if (! ~ $flagf '')
+	font = $flagf
+
+if (! ~ $* '') command = $*
+if not command = rc
+
+if (! ~ $input '') {
+	echo -n $input >$tmpinput
+
+	ctl = `$ctlfs{9p read acme/new/ctl}
+	winid = $ctl($ctlid)
+
+	inputwinid = $winid
+
+	winctl name $tmpinput
+	winctl get
+	winctl name '/+'$name
+	winctl clean
+	winaddr ,
+	winctl dot=addr
+	winctl show
+}
+
+if (! ~ $secret '') {
+	echo -n $secret |acmesecret >$tmpsecretid &
+
+	while (~ `{cat $tmpsecretid} '')
+		sleep 1
+}
+
+{
+	for (k in name pid command tmpstatus)
+		winrun_$k = $$k
+
+	# Preserve the original environment.
+	#
+	while (! ~ $#pkeys 0) {
+		$pkeys(1) = $(pvalues$pkeys(1))
+		pvalues$pkeys(1) = ()
+		pkeys = $pkeys(2-)
+	}
+
+	win -n $winrun_name$winrun_pid rc -c '
+		$*
+		echo -n $status >$winrun_tmpstatus
+	' $winrun_command
+} &
+winpid = $apid
+
+while (! winid = `{
+	9p read acme/index |
+	grep '*/-'$name$pid' Del Snarf' |
+	awk 'NR == 1 {print $1}'
+})
+	sleep 1
+
+if (! ~ $flagw '')
+	echo $winid
+
+winctl name `{winname |sed 's|[^/]*$|-'$name'|'}
+
+if (! ~ $tag '') {
+	winctl cleartag
+	echo -n $tag |winwrite tag
+}
+
+if (! ~ $font '')
+	winctl font $font
+
+wait $winpid
+
+if (! ~ $input '')
+	winid = $inputwinid windelifclean
+
+if (! ~ $secret '')
+	winid = `{cat $tmpsecretid} windelifclean
+
+if (! ~ $flagc '' && ~ `{cat $tmpstatus} '')
+	winctl delete
+
+exit `{cat $tmpstatus}

@@ -1,0 +1,200 @@
+# liblist.rc requires 9.rc
+
+# FIXME: if the user deals not with lists but arbitrary output,
+# suggest him Unix tools
+
+# FIXME: doc
+# FIXME: example
+# FIXME: panics
+# FIXME: comparestring
+#
+fn cmpnum {
+	if (test $1 -lt $2) echo -n -1
+	if not if (test $1 -eq $2) echo -n 0
+	if not echo -n 1
+}
+
+# FIXME: doc
+# FIXME: example
+#
+fn listcompact {
+	if (! ~ $#* 1) {
+		echo >[1=2] listcompact: 1 argument expected, $#* provided
+		exit args
+	}
+
+	eq = _listcompacteq {
+		fn $eq {test $1 = $2}
+		listcompactfunc $1 $eq
+		fn $eq
+	}
+}
+
+# FIXME: doc
+# FIXME: example
+#
+fn listcompactfunc {
+	if (! ~ $#* 2) {
+		echo >[1=2] listcompactfunc: 2 argument expected, $#* provided
+		exit args
+	}
+
+	nl = '
+' _l = $1 eq = $2 m = () i = '' {
+		if (! ~ $#$_l 0 1) {
+			m = $($_l)(1)
+			for (i in `$nl{seq 2 $#$_l}) {
+				if (! $eq $($_l)($i) $m($#m))
+					m = ($m $($_l)($i))
+			}
+
+			$_l = $m
+		}
+	}
+}
+
+# FIXME: doc
+# FIXME: example
+# FIXME: listcomparestring
+#
+fn listcomparenum {
+	if (! ~ $#* 2) {
+		echo >[1=2] listcomparenum: 2 argument expected, $#* provided
+		exit args
+	}
+
+	listcomparefunc $1 $2 cmpnum
+}
+
+# FIXME: doc
+# FIXME: example
+#
+fn listcomparefunc {
+	if (! ~ $#* 3) {
+		echo >[1=2] listcomparefunc: 3 argument expected, $#* provided
+		exit args
+	}
+
+	@ nl = '
+' l1 = $1 l2 = $2 cmp = $3 i = '' {
+		for (i in `$nl{seq $#$l1}) {
+			if (test $i -gt $#$l2) {
+				echo -n 1
+				exit 0
+			}
+
+			if (c = `{$cmp $($l1)($i) $($l2)($i)}; ! ~ $c 0) {
+				echo -n $c
+				exit 0
+			}
+		}
+		if (test $#$l1 -lt $#$l2) echo -n -1
+		if not echo -n 0
+	}
+}
+
+# FIXME: doc
+# FIXME: example
+#
+fn listcontains {
+	if (~ $#* 0) {
+		echo >[1=2] listcontains: at least 1 argument expected, $#* provided
+		exit args
+	}
+
+	! ~ `{listindex $*} -1
+}
+
+# FIXME: doc
+# FIXME: example
+#
+fn listcontainsfunc {
+	if (~ $#* 0) {
+		echo >[1=2] listcontainsfunc: at least 1 argument expected, $#* provided
+		exit args
+	}
+
+	! ~ `{listindexfunc $*} -1
+}
+
+# FIXME: doc
+# FIXME: example
+#
+# listindex returns the index of the first occurrence of v in l, or
+# -1 if not present.
+#
+fn listindex {
+	if (~ $#* 0) {
+		echo >[1=2] listindex: at least 1 arguments expected, $#* provided
+		exit args
+	}
+
+	v = $1 l = $*(2-) f = _listindexf {
+		fn $f {~ $1 $v}
+		listindexfunc $f $l
+		fn $f
+	}
+}
+
+# FIXME: doc
+# FIXME: example
+#
+fn listindexfunc {
+	if (~ $#* 0) {
+		echo >[1=2] listindexfunc: at least 1 arguments expected, $#* provided
+		exit args
+	}
+
+	@ nl = '
+' f = $1 l = $*(2-) i = '' {
+		for (i in `$nl{seq $#l}) {
+			if ($f $l($i)) {
+				echo -n $i
+				exit
+			}
+		}
+		echo -n -1
+	}
+}
+
+# FIXME: doc
+# FIXME: example
+#
+fn listrepeat {
+	if (! ~ $#* 2) {
+		echo >[1=2] listrepeat: 2 argument expected, $#* provided
+		exit args
+	}
+
+	nl = '
+' _l = $1 count = $2 i = '' m = () {
+		if (~ $count *''$nl''* || echo $count |! grep -s '^[0-9]+$') {
+			echo >[1=2] count is not a positive number
+			exit args
+		}
+
+		for (i in `$nl{seq $count})
+			m = ($m $$_l)
+
+		$_l = $m
+	}
+}
+
+# FIXME: doc
+# FIXME: example
+#
+# When the number of arguments is not one, it fails similarly
+# to how a null list behaves in concatenation.
+#
+fn listreverse {
+	if (! ~ $#* 1) {
+		echo >[1=2] listreverse: 1 argument expected, $#* provided
+		exit 1
+	}
+
+	_l = $1 v = '' r = () {
+		for (v in $$_l)
+			r = ($v $r)
+		$_l = $r
+	}
+}

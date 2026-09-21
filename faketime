@@ -1,0 +1,21 @@
+#!/usr/bin/env rc
+
+# usage: faketime '2025-09-09 01:30:00' date
+#
+# Test each hour:
+#
+# for (h in `{seq -f '%02g' 0 23}) {
+#     cmd = (faketime '2025-09-09 '$h':30:00' date)
+#     echo $cmd
+#     $cmd
+# }
+#
+# Be careful with running anything from system paths, including
+# /usr/bin/env. They cause the system to undo faketime of themselves
+# and their child processes.
+
+DYLD_INSERT_LIBRARIES = /opt/homebrew/Cellar/libfaketime/0.9.12/lib/faketime/libfaketime.1.dylib
+DYLD_FORCE_FLAT_NAMESPACE = 1
+FAKETIME = $1
+
+exec $*(2-)

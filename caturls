@@ -1,0 +1,15 @@
+#!/usr/bin/env rc
+flag e +
+ifs = '
+'
+
+. 9.rc
+
+cat $* |
+ssam -e '{
+	d
+	x!(https?|ftp|file|gopher|mailto|news|nntp|telnet|wais|prospero)://[a-zA-Z0-9_@\-]+([.:][a-zA-Z0-9_@\-]+)*/?[a-zA-Z0-9_?,%#~&/\-+=]+([:.][a-zA-Z0-9_?,%#~&/\-+=]+)*! {
+		t $
+		$ c/\n/
+	}
+}'

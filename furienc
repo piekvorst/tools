@@ -1,0 +1,38 @@
+#!/usr/bin/env rc
+
+# FIXME: rename to furiencode (or maybe something even better)
+
+# BUG: furienc -d does not work.
+
+# If $src does not exist, let mv(1) fail.
+
+# If $src == $dst, let mv(1) fail.
+
+# If $dst already exists, don't do anything to avoid doing anything
+# unexpected by user.
+
+# FIXME: maybe integrate with urlescape?
+
+. 9.rc
+. lib.rc
+
+fn usage {die 'furienc file...'}
+
+if (~ $* '')
+	usage
+
+furiencstatus = ()
+
+for (src) {
+	dst = `{basename -d $src}/`{urienc `{basename $src}}
+	if (test -e $dst) {
+		echo >[1=2] dst already exists: $dst
+		furiencstatus = 1
+	}
+	if not {
+		if (! mv $src $dst)
+			furiencstatus = 1
+	}
+}
+
+exit $furiencstatus

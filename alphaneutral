@@ -1,0 +1,65 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+
+lowlatin = 'aeopcyx'
+lowcyrillic = 'аеорсух'
+
+caplatin = 'ABEKMHOPCTYX'
+capcyrillic = 'АВЕКМНОРСТУХ'
+
+fn wrap {ssam -e 's/[a-zA-Zа-яёА-ЯЁ]/[&]/g'}
+
+fn ignorecase {@ {
+
+	# There are two ways to generate classes:
+	#
+	# 1) Abc: [Aa][bB][cC]
+	#
+	# 2) Abc: [Aa][Bb][Cc]
+	#
+	# The second one is more consistent.
+
+	e1 = 'x/[a-zA-Zа-яёА-ЯЁ]/ t .'
+
+	e2 = 'x/[a-zA-Zа-яёА-ЯЁ][a-zA-Zа-яёА-ЯЁ]/ {
+		-#0+/./ |9 tr ''a-zа-яё'' ''A-ZА-ЯЁ''
+		+#0-/./ |9 tr ''A-ZА-ЯЁ'' ''a-zа-яё''
+	}'
+
+	ssam $e1 |ssam $e2
+}}
+
+fn ignorecyr {@ {
+	e1 = 'x/['$lowlatin$lowcyrillic$caplatin$capcyrillic']/ t .'
+
+	e2 = 'x/['$lowlatin$lowcyrillic$caplatin$capcyrillic']./ {
+		+#0-/./ |9 tr '''$lowlatin$lowcyrillic$caplatin$capcyrillic''' '''$lowcyrillic$lowlatin$capcyrillic$caplatin'''
+	}'
+
+	ssam -e $e1 |ssam -e $e2
+}}
+
+flagfmt = 'c,i'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+if (~ $1 '') {
+	echo >[1=2] no string
+	exit 1
+}
+
+if (~ $1 *[~a-zA-Zа-яёА-ЯЁ]*) {
+	echo >[1=2] has non-alpha characters: $1
+	exit 1
+}
+
+echo_s $1 |
+wrap |
+{! ~ $flagi '' && ignorecase || cat} |
+{! ~ $flagc '' && ignorecyr || cat}

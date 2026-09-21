@@ -1,0 +1,44 @@
+#!/usr/bin/env rc
+
+# FIXME: handle interface1 and interface2 within *the same* file
+
+. 9.rc
+
+ident = '[a-zA-Z_][a-zA-Z_0-9]*'
+
+typeblock = '^type *\(([^)].*\n|\n)*\)'
+interface1 = '^	'$ident'( +| *= *)interface *{(}|\n)([^	].*\n|	[^}].*\n|\n)*	}'
+interface2 = '^type +'$ident'( +| *= *)interface *{(}|\n)([^}].*\n|\n)*}'
+
+buf = $TMPDIR/grepinterface$pid
+
+method = $1
+
+fn sigexit {rm -f $buf}
+
+grep '\.go$' |
+part grep -l '(^type +|^	)'$ident'( +| *= *)interface *{(}|$)' |
+while (f = `{read}) {
+	ssam -e '{
+		d
+		x/'$typeblock'/ x/'$interface1'/ -#0+/'$ident'/+#0,. {
+			x g/'$ident'/ -#0+/'$ident'/ g/'$method'/ {
+				-/^	'$ident'/ t $
+				$ a/\n/
+			}
+		}
+		v/'$typeblock'/ x/'$interface2'/ -#0+/type/+/'$ident'/+#0,. {
+			x g/'$ident'/ -#0+/'$ident'/ g/'$method'/ {
+				-/^type +'$ident'/+#0-/'$ident'/ t $
+				$ a/\n/
+			}
+		}
+	}' $f |awk '!seen[$0]++' >$buf
+
+	if (! ~ `{sed 1q $buf} '') {
+		echo $f
+		cat $buf |mc |sed 's/^/	/'
+	}
+}
+
+exit 0

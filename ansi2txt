@@ -1,0 +1,5 @@
+#!/usr/bin/env rc
+
+. 9.rc
+
+exec sed 's/'`{ascii -t 1b}'\[[0-9;]*m//g'

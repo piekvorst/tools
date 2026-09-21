@@ -1,0 +1,25 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# jsonfmt: pretty-print JSON if valid, otherwise pass through unchanged
+
+if (~ $TMPDIR '')
+	TMPDIR = /tmp
+
+buf = $TMPDIR/jsonfmt$pid
+
+fn sigexit {rm -f $buf}
+
+switch ($#*) {
+case 0
+	cat >$buf
+case *
+	if (! cat $* >$buf) {
+		echo >[1=2] failed to catenate files in arguments
+		exit 1
+	}
+}
+
+if (cat $buf |jq >/dev/null >[2=1]) cat $buf |jq --sort-keys --tab
+if not cat $buf

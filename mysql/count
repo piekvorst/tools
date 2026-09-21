@@ -1,0 +1,26 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+
+buf = ()
+
+fn sigexit {rm -f $buf}
+
+fn escape {sed 's/`/``/g'}
+
+for (t in `{mysql/ls |escape}) {
+	buf = ($buf /tmp/mysqlcount$#buf)
+
+	echo $t `{
+		echo select 'count(*)' n from $t |
+		mysql |
+		awk '/^n:/ {print $2}'
+	} >$buf($#buf) &
+	wgadd wg 10
+}
+
+wgwait wg
+cat $buf

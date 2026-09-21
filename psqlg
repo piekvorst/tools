@@ -1,0 +1,30 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# psqlg: filter psql output by tables and columns
+
+. 9.rc
+
+table = $1
+vtable = $2
+column = $3
+command = $*(4-)
+
+echo '\d' |
+$command |
+awk '/^[	 ]*public/ {print $3}' |
+grep -i $table |
+{
+	if (! ~ $vtable '') grep -iv $vtable
+	if not cat
+} |
+sed 'p;s/^/\\d /' |
+while (t = `{read}) switch ($t) {
+case \d*
+	echo $t |
+	$command |
+	grep -i $column
+case *
+	echo $t
+}

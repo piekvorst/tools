@@ -1,0 +1,85 @@
+#!/usr/bin/env rc
+flag e +
+ifs = '
+'
+
+# Gitshow resolves the name of the current window as a git name and
+# preserves the current line.
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+tmpdir = /tmp/`{basename $0}$pid
+mkdir -p $tmpdir
+
+tmpshow = $tmpdir/gitshow
+
+fs = '
+	 '
+
+ctlfs = '
+	 '
+ctlid = 1
+
+wcfs = '
+	 '
+wclines = 1
+wcwords = 2
+wcbytes = 3
+
+fn sigexit {rm -r $tmpdir}
+
+if (~ $1 '') {
+	echo >[1=2] revision cannot be empty
+	exit 1
+}
+
+file = `{winname}
+
+if (test ! -r $file -or ! -f $file) {
+	echo >[1=2] current window is not a readable file
+	exit 1
+}
+
+if (! git rev-parse --is-inside-work-tree >/dev/null) {
+	echo >[1=2] not inside a git work tree
+	exit 1
+}
+
+if (! git rev-parse --verify --end-of-options $1 >/dev/null >[2=1]) {
+	echo >[1=2] invalid revision
+	exit 1
+}
+
+git show $1:`{gitname $file} >$tmpshow
+showwc = `$wcfs{wc $tmpshow}
+
+linecol = `$fs{winlinecolumn}
+
+ctl = `$ctlfs{9p read acme/new/ctl}
+winid = $ctl($ctlid)
+
+winctl name $tmpshow
+winctl get
+winctl name `{basename -d $file}/+$1+`{basename $file}
+winctl clean
+
+if (~ $linecol(1)$linecol(2) $linecol(3)$linecol(4)) {
+	if (test $linecol(1) -le $showwc($wclines))
+		winaddr $linecol(1)'-#0'
+	if not
+		winaddr '$'
+}
+if not {
+	if (test $linecol(3) -le $showwc($wclines))
+		winaddr $linecol(1),$linecol(3)
+	if not if (test $linecol(1) -le $showwc($wclines))
+		winaddr $linecol(1),$showwc($wclines)
+	if not
+		winaddr '$'
+}
+
+winctl dot=addr
+winctl show

@@ -1,0 +1,477 @@
+# FIXME: reorder. maybe put "reproduces" functions first.
+
+# libacme.rc requires lib.rc, 9.rc and $PLAN9/lib/acme.rc
+
+acmeindexid = 1
+acmeindextagrunes = 2
+acmeindexbodyrunes = 3
+acmeindexdirectory = 4
+acmeindexdirty = 5
+acmeindextag = 6
+
+acmectlwidthpixels = 6
+acmectlfont = 7
+acmectltabpixels = 8
+acmectlundo = 9
+
+# findwindow returns the ID of a window found by its name. It makes
+# it possible to reproduce behaviors similar to clicking on button 3:
+# opening files, showing their dot, jumping to a line number or
+# address.
+#
+# A common pattern is to open a file, possibly non-existent, and then
+# identify it with findwindow:
+#
+# plumb -d edit $f
+# winid = `{findwindow $f}
+#
+# Due to the design of rc, multiline names are not supported.
+#
+fn findwindow {@ {
+	ifs = '
+'
+	nl = '
+'
+
+	switch ($1) {
+	case ''
+		echo >[1=2] empty name
+		exit args
+	case *''$nl''*
+		echo >[1=2] multiline name: $1
+		exit args
+	}
+
+	names = (`{cleanname $1} `{cleanname -d `{pwd} $1})
+	names = ($names $names/)
+
+	parseindex index
+	for (entry in $index) {
+		for (n in $names) {
+			if (~ $($entry)($acmeindextag) $n' Del Snarf'*) {
+				echo $($entry)($acmeindexid)
+				exit 0
+			}
+		}
+	}
+
+	exit 1
+}}
+
+fn parseindexfield {
+	field = '...........' {
+		switch ($1) {
+		case [1-5]
+			sed 's/^('$field').('$field').('$field').('$field').('$field').(.*)/\'$1'/' |
+			tr -d ' \xa'
+		case 6
+			sed 's/^('$field').('$field').('$field').('$field').('$field').(.*)/\'$1'/' |
+			tr -d '\xa'
+		case *
+			! echo >[1=2] parseindexfield: invalid argument: $1
+		}
+	}
+}
+
+fn parsectlfield {
+	field = '...........' {
+		switch ($1) {
+		case [1-6]
+			sed -n '1 s/^('$field').('$field').('$field').('$field').('$field').('$field')..*/\'$1'/p' |
+			tr -d ' \xa'
+		case 7
+			ssam -e '{
+				,-#0+#72 d
+				-#0+#72,+#0-#37 {
+					.,-#0+#1 g/''/ d
+					-#0+#1,+#0-#1 x/''''/ c/''/
+					+#0-#1,. g/''/ d
+				}
+				+#0-#37, d
+			}'
+		case [7-9]
+			sed -n '$ s/.*('$field').('$field').('$field').$/\'`{echo $1 - 6 |bc}'/p' |
+			tr -d ' \xa'
+		case *
+			! echo >[1=2] parsectlfield: invalid argument: $1
+		}
+	}
+}
+
+fn parseindex {
+	ifs = '
+' s = '' i = '' {
+		for (s in `{9p read acme/index}) {
+			for (i in `{seq 6})
+				($1$#$1) = ($($1$#$1) `''{echo -n $s |parseindexfield $i})
+
+			$1 = ($$1 $1$#$1)
+		}
+	}
+}
+
+fn parsectl {
+	i = '' {
+		for (i in `{seq 9})
+			$1 = ($$1 `''{winread ctl |parsectlfield $i})
+	}
+}
+
+fn winname {winread tag |ssam -e '/ Del Snarf/, d'}
+
+fn winaddr {echo -n $1 |winwrite addr}
+
+# windir copies the semantics of /bin/pwd run from the tag of $1.
+#
+# BUGS:
+#
+# . The resolution of relative paths is fragile.
+#
+fn windir {@ {
+	ifs = '
+'
+
+	if (! ~ $#* 0 1) {
+		echo >[1=2] more than one argument: $#*, $*
+		exit args
+	}
+
+	if (s = `{sed -n 1p $home/acme.dump >[2]/dev/null} && ! ~ $s '')
+		acmedir = $s
+	if not
+		acmedir = $home
+
+	if (~ $1 /*/ && test -d $1) cleanname $1
+	if not if (~ $1 /*[~/] && dir = `{basename -d $1} && test -d $dir) cleanname $dir
+	if not if (~ $1 [~/]*/ && dir = `{cleanname -d $acmedir $1} && test -d $dir) echo $dir
+	if not if (~ $1 [~/]*[~/] && dir = `{basename -d `{cleanname -d $acmedir $1}} && test -d $dir) echo $dir
+	if not cleanname $acmedir
+}}
+
+fn varfont {
+	ifs = '
+' s = '' {
+		if (s = `{sed -n 2p $home/acme.dump >[2]/dev/null} && ! ~ $s '') echo $s
+		if not if (! ~ $PLAN9 '') echo $PLAN9/font/lucsans/euro.8.font
+		if not echo /lib/font/bit/lucsans/euro.8.font
+	}
+}
+
+fn fixfont {
+	ifs = '
+' s = '' {
+		if (s = `{sed -n 3p $home/acme.dump >[2]/dev/null} && ! ~ $s '') echo $s
+		if not if (! ~ $PLAN9 '') echo $PLAN9/font/lucm/euro.9.font
+		if not echo -n /lib/font/bit/lucm/euro.9.font
+	}
+}
+
+# FIXME: it seems to be a nice idea to let this routine work outside
+# of Acme. Collect all scripts where it might be useful.
+# FIXME: maybe use the last $*, not $1?
+# FIXME: make sure everyone uses $1, not $*. This handles $*($#*)
+# well.
+# FIXME: a lot lot of lots of words explain a lot nothing. Rewrite
+# the doc.
+#
+# winarg infers the origin window of the user's argument to a
+# command.
+#
+# The idiom is:
+#
+# if (! winid = `{winarg $1})
+#     die 'cannot infer the argument'
+#
+# If no argument is given, it prints winid. If winid is not a
+# positive number, it fails (emits a warning to the stderr and sets a
+# non-empty status).
+#
+# If exactly one argument is provided, it first tries to extract a
+# window name from acmeaddr (meaning the argument comes from a window
+# body), fallbacks to window name in /mnt/acme/index (as defined by
+# findwindow), and fails otherwise.
+#
+# If two or more arguments are provided, it fails.
+#
+# The purpose of this command is to uniformly identify what window
+# does the user have in mind. There are two fundamental ways to get a
+# window: by winid and by looking for a window name in
+# /mnt/acme/index. They are also very different, even incompatible.
+# How can a program proceed into a single direction and retain
+# incompatible states? One way is to retain the difference until the
+# end, often to the point of absurdity. The other is to retain the
+# common distinguishing aspect. Thus, you either lose winid and
+# always look for a window name in /mnt/acme/index, or you lose the
+# window name and only have an ID. The problem is not that one is
+# worse than the other (although ID is indeed superior), but that it
+# takes too much effort to get this abstraction, to make a lot of
+# choices that affect the abstraction.
+#
+fn winarg {
+	s = '' {
+		switch ($#*) {
+		case 0
+
+			# Infer context from the latest active
+			# window.
+			#
+			if (test $winid -gt 0 >[2]/dev/null) echo -n $winid
+			if not ! echo >[1=2] no latest active window
+		case 1
+
+			# $#* is not limited to 1 since the 2-1 chord
+			# may split the argument.
+
+			# acmeaddr means the argument is from a
+			# window body. Otherwise, try window name.
+			# Otherwise, fail.
+			#
+			if (~ $acmeaddr *:*) findwindow `{echo -n $acmeaddr |sed 's/:[^:]*$//'}
+			if not if (s = `{findwindow $*}) echo -n $s
+			if not ! echo >[1=2] cannot infer a window: $1
+		case *
+			! echo >[1=2] too many arguments
+		}
+	}
+}
+
+# winlook reproduces Look behavior.
+#
+fn winlook {
+	if (! ~ $1 '' && acmeaddr /`{samescape $1}/ >/dev/null >[2=1]) {
+		winctl dot=addr
+		winctl show
+	}
+}
+
+# winlookback reproduces the reverse of Look behavior.
+#
+fn winlookback {
+	if (! ~ $1 '' && acmeaddr -/`{samescape $1}/ >/dev/null >[2=1]) {
+		winctl dot=addr
+		winctl show
+	}
+}
+
+fn windelifclean {
+	fs = '
+	 ' dirty = 5 ctl = '' {
+
+		if (ctl = `$fs{winread ctl >[2]/dev/null}) {
+			if (~ $ctl($dirty) 0)
+				winctl del
+		}
+	}
+}
+
+fn winextract {
+	if (! acmeaddr $1 >/dev/null) ! echo >[1=2] acmeaddr failed
+	if not if (acmeaddr $1 |grep -s '[0-9]+[	 ]+[0-9]+') winread xdata
+	if not echo -n
+}
+
+# winwordaddr prints the address of non-nill dot or surrounding
+# [a-zA-Z_0-9]* if the dot is nil.
+#
+# If the dot points to a file somehow, winwordaddr makes no attempt
+# to build an absolute path.
+#
+# In essence, it reproduces the 2-1 chord's properties (except for
+# files).
+#
+fn winwordaddr {
+	class = 'a-zA-Z_0-9' expr = '' s = '' {
+		if (acmeaddr |! grep -s '[0-9]+[	 ]+[0-9]+') {
+			if (~ `{winextract '-#1,-#0' >[2]/dev/null} [$class]) expr = '-/['$class']+/'
+			if not expr = '-#0'
+
+			if (~ `{winextract '+#0,+#1' >[2]/dev/null} [$class]) expr = $expr',+/['$class']+/'
+			if not expr = $expr',+#0'
+
+			if (! ~ $expr '-#0,+#0') acmeaddr $expr
+			if not echo -n
+		}
+	}
+}
+
+fn winbyte {
+	fs = '
+	 ' i = '' j = '' {
+
+		i = `$fs{winextract ',-#0' |wc -c}
+		j = `$fs{winextract ',+#0' |wc -c}
+
+		if (~ $i $j) echo -n $i
+		if not echo -n $i $j
+	}
+}
+
+# The abstraction in question has an unobvious conflict: it is very
+# tricky to define the last line compatible between .*\n and ^ (the
+# beginning of a line). + and +#0 choose different lines and any
+# subsequent combination based on them is doomed to be incompatible,
+# too. Neither +- nor +#0-+ work. The solution is to make ^ a special
+# case, i.e. the dot being nil and the previous rune being \n.
+#
+fn winline {
+	fs = '
+	 ' i = '' j = '' {
+
+		i = `$fs{winextract ',-+' |wc -l}
+
+		if (
+			winextract |! grep -s '.?' &&
+			winextract '+#0-#1,+#0' >[2]/dev/null |! grep -s .
+		) {
+			j = `$fs{winextract ',+' |wc -l}
+		}
+		if not {
+			j = `$fs{winextract ',+-' |wc -l}
+		}
+
+		if (~ $i $j) echo -n $i
+		if not echo -n $i $j
+	}
+}
+
+fn winlinecolumn {@ {
+	ifs = '
+'
+	fs = '
+	 '
+
+	fn startcol {echo 1 + `{winextract $1',-#0' |wc -c} |bc}
+	fn endcol {echo 1 + `{winextract $1',+#0' |wc -c} |bc}
+
+	lines = `$fs{winline}
+	switch ($#lines) {
+	case 1
+		echo -n $lines(1) `{startcol $lines(1)} $lines(1) `{endcol $lines(1)}
+	case 2
+		echo -n $lines(1) `{startcol $lines(1)} $lines(2) `{endcol $lines(2)}
+	}
+}}
+
+# FIXME: seems to be deprecated. Find out for certain if I use
+# plumb&findwindow correctly (e.g. it's idiomatic to affect other
+# text editors).
+#
+# winopen opens a file in a new window and places the dot to the
+# provided address. If the file is already opened in an existing
+# window, winopen only places the dot.
+#
+# If the path is unrooted, it's *lexically* prefixed with wdir.
+#
+# If the file does not exist, winopen errs, unless force is set, in
+# which case winopen copies New properties.
+#
+# In essence, it copies the button 3 properties. It's similar to
+# findwindow but narrower and handles non-existent files.
+#
+# IMPORTANT: Because winopen emulates button 3, it doesn't reload the
+# file.
+#
+# If the new window is created, winid is overwritten. To keep it,
+# make a local winid on your side:
+#
+# winid = $winid {winopen /}
+#
+# Multiline filenames are intentionally not supported.
+#
+fn winopen {@ {
+	ifs = '
+'
+
+	ctlfs = '
+	 '
+	ctlid = 1
+
+	file = $1
+	addr = $2
+	force = $3
+
+	cleanfile = `{cleanname -d `{pwd} $file}
+
+	if (! test -e $cleanfile && ~ $force '') {
+		echo >[1=2] winopen: file does not exist: $cleanfile
+		exit 1
+	}
+
+	if (! winid = `{findwindow $cleanfile}) {
+		ctl = `$ctlfs{9p read acme/new/ctl}
+		winid = $ctl($ctlid)
+	}
+
+	if (! ~ $addr '')
+		winaddr $addr
+	winctl dot=addr
+	winctl show
+
+	echo $winid
+}}
+
+# winpipe writes dot to $* and sets the dot to $* output. In essence,
+# it reproduces |cat.
+#
+fn winpipe {
+	ifs = '
+' fs = '
+	 ' buf = '' dot = '' TMPDIR = '' {
+
+		if (~ $TMPDIR '')
+			TMPDIR = /tmp
+
+		buf = $TMPDIR/winpipe$pid.`{seq 2}
+
+		dot = `$fs{acmeaddr}
+		winread xdata >$buf(1)
+
+		$* <$buf(1) >$buf(2)
+
+		if (! cmp -s $buf(1) $buf(2)) {
+			winctl addr=dot
+			cat $buf(2) |winwrite data
+
+			acmeaddr '#'$dot(1),. >/dev/null
+			winctl dot=addr
+			winctl show
+		}
+
+		rm -f $buf
+	}
+}
+
+# winreplace runs its arguments and replaces the dot with output. In
+# essence, it reproduces <cat.
+#
+fn winreplace {
+	fs = '
+	 ' dot = '' {
+
+		dot = `$fs{acmeaddr}
+		$* |winwrite data
+
+		acmeaddr '#'$dot(1),. >/dev/null
+		winctl dot=addr
+		winctl show
+	}
+}
+
+fn nextwinname {@ {
+	dir = `{cleanname -d `{pwd} $1}
+
+	n = `{
+		9p read acme/index |
+		grep '*'$dir'/-'$2 |
+		sed -n 's:.*/-'$2'([1-9][0-9]*) Del Snarf.*:\1:p' |
+		sort -nr |
+		sed 1q
+	}
+
+	# '' is not 0, thus some condition is necessary
+	#
+	if (~ $n '')
+		n = 0
+
+	echo $dir/-$2`{echo $n + 1 |bc}
+}}

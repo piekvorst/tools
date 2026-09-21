@@ -1,0 +1,209 @@
+# lib.rc requires 9.rc
+
+# It is essential to print the whole thing in a single run. For some
+# reason, Acme inserts "echo: exit 1" between the first and the
+# second output here:
+#
+# echo -n hello; echo; exit 1
+#
+fn echo_s {
+	echo -n $"*'
+'
+}
+
+fn dotify {
+	new = () f = '' {
+		for (f in $$1) {
+			if (~ $f /*) new = ($new $f)
+			if not new = ($new ./$f)
+		}
+		$1 = $new
+	}
+}
+
+# FIXME: use echo and exit
+#
+fn die {
+	>[1=2] {
+		echo -n $*
+		echo
+	}
+	exit 1
+}
+
+fn lsr {
+	_l = $1 q = $*(2-) f = '' {
+		while (! ~ $#q 0) {
+			if (test -L $q(1)) {
+			}
+			if not if (test -f $q(1)) {
+				$_l = ($$_l $q(1))
+			}
+			if not if (test -d $q(1)) {
+				for (f in $q(1)/*)
+					q = ($q $f)
+			}
+			q = $q(2-)
+		}
+	}
+}
+
+fn nextid {@ {
+	dir = $1
+	pattern = $2
+
+	if (~ $dir '') {
+		echo >[1=2] not a valid directory: $dir
+		exit 1
+	}
+	if (test ! -e $dir) {
+		echo 1
+		exit 0
+	}
+	if (test ! -r $dir -or ! -d $dir) {
+		echo >[1=2] not a valid directory: $dir
+		exit 1
+	}
+
+	n = `{
+		ls -p $dir |
+		grep -e $pattern |
+		sed 's/.*([1-9][0-9]*)$/\1/' |
+		sort -nr |
+		sed 1q
+	}
+
+	if (~ $n '') echo 1
+	if not echo $n + 1 |bc
+}}
+
+# g ≠ !v and v ≠ !g.
+#
+# g means "at least one line matches," !g means "no single line
+# matches" or "all lines do not match," v means "at least one line
+# does not match," !v means "no single line does not match" or "all
+# lines match."
+#
+# An empty input or file is never matched by g, always by !g, never
+# by v, always by !v.
+#
+# Empty input and empty *line* are different concepts, which may
+# cause confusion. E.g. g .? (at least one line matches zero or one
+# character) matches an empty line but not input, !v . (all lines
+# match any character) matches an empty input but not line. For some
+# cases, consider the idiom g .? && !v, meaning "at least one line
+# exists and all lines match something."
+#
+#fn g {grep $* >/dev/null}
+#fn v {grep -v $* >/dev/null}
+
+fn regescape {
+	nl = '
+' {
+		if (~ $1 *''$nl''*) {
+			echo >[1=2] regescape: newlines not allowed
+			exit args
+		}
+
+		echo -n $1 |ssam -e 'x/[.*+?\[\]()|\\^$]/ i/\\/'
+	}
+}
+
+# same as regescape but further escapes '/' (forward slashes) and
+# literal newlines.
+#
+fn samescape {
+	echo -n $1 |
+	ssam -e 'x/.|\n/ {
+		g![.*+?\[\]()|\\^$/]! i/\\/
+		g/\n/ c/\\n/
+	}'
+}
+
+# Plan 9's tools like basename or pwd, as well as Unix's, handle
+# newlines but add an unnecessary one.
+#
+# Plan 9 solves this problem by banning newlines in filenames and
+# removing them with ifs.
+#
+# Unix solves this problem by having sh remove the final newline.
+#
+fn deleol {ssam -e 'g/.|\n/ $-/.|\n/ g/\n/ d'}
+
+# FIXME: in clients: clean wgvar before using it
+# FIXME: name $2
+#
+fn wgadd {
+	wgvar = $1 p = '' {
+		$wgvar = ($$wgvar $apid)
+		if (~ $#$wgvar $2) {
+			for (p in $$wgvar)
+				builtin wait $p
+
+			$wgvar = ()
+		}
+	}
+}
+
+# wgwait cleans wgvar to make sure wgadd wouldn't start waiting
+# earlier than expected.
+#
+fn wgwait {
+	wgvar = $1 p = '' {
+		for (p in $$wgvar)
+			wait $p
+
+		$wgvar = ()
+	}
+}
+
+# rcstring formats its arguments according to rc command syntax.
+#
+fn rcstring {
+	arg = '' out = () {
+		for (arg) {
+			switch ($arg) {
+			case *[~a-zA-Z_0-9]*
+				out = ($out ''''`''{echo -n $arg |ssam -e 's/''/''''/g'}'''')
+			case *?*
+				out = ($out $arg)
+			case ''
+				out = ($out '''''')
+			}
+		}
+
+		echo -n $out
+	}
+}
+
+# BUG
+fn bugun9 {
+	un9path = () p = '' {
+		for (p in $path) {
+			if (! ~ $p */plan9/*) {
+				echo non-9: $p
+				un9path = ($un9path $p)
+			}
+		}
+		echo $un9path
+		un9path = (/ /usr/ /usr/local/)^*bin
+
+		path = $un9path $* |grep PATH=
+	}
+}
+
+fn coalesce {@ {
+	if (~ $#* 0)
+		exit 0
+
+	last = $*($#*)
+
+	for (v in $*(`{seq `{echo $#* - 1 |bc}})) {
+		if (! ~ $$v '') {
+			echo -n $$v
+			exit 0
+		}
+	}
+
+	echo -n $last
+}}

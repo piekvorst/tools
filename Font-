@@ -1,0 +1,19 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# FIXME: use parsectl
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+
+ctlfs = '
+	 '
+ctlfont = 7
+
+ctl = `$ctlfs{winread ctl}
+size = `{echo -n $ctl($ctlfont) |sed 's!.*/([1-9][0-9]*)a/.*!\1!'}
+smaller = `{echo $size / 2 - 1 |bc}
+newfont = `{echo -n $ctl($ctlfont) |sed 's!/[1-9][0-9]*a/!/'$smaller'a/!'}
+
+winctl font $newfont

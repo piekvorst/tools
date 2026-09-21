@@ -1,0 +1,91 @@
+#!/usr/bin/env rc
+
+. 9.rc
+. libstring.rc
+
+nl = '
+'
+
+fn mkskill {
+	skills = ($skills $2)
+	skill$1 = $#skills
+	skillkeys = ($skillkeys skill$1)
+}
+
+mkskill bash 549
+mkskill c 849
+mkskill elixir 1114
+mkskill erlang 108
+mkskill go 101
+mkskill linux 821
+mkskill node 12
+mkskill perl 54
+mkskill php 1005
+mkskill python 446
+mkskill ruby 1081
+
+fn vacancies {
+	curl \
+		--no-progress-meter \
+		'https://career.habr.com/vacancies/rss?employment_type=full_time&remote=true&skills[]='$1 |
+	tr -d '\xa' |
+	ssam -e '{
+		d
+		x!<item>([^<]|<[^/]|</[^i]|</i[^t]|</it[^e]|</ite[^m]|</item[^>])*</item>! {
+			x!<author>.*</author>! y!</?author>! g/./ {
+				t $
+				$ c/: /
+			}
+			x!<title>.*</title>! y!</?title>! g/./ {
+				t $
+				$ c/\n/
+			}
+			x!<link>.*</link>! y!</?link>! g/./ {
+				t $
+				$ c/\n/
+			}
+			x!<pubDate>.*</pubDate>! y!</?pubDate>! g/./ {
+				t $
+				$ c/\n/
+			}
+			$ c/\n/
+		}
+	}' |
+	ssam -e 'x/&[^;]*;/ {
+		g/&amp;/ c/&/
+	}' |
+	ssam -e 'x s/Требуется *«(.*)»/\1/' |
+	fmt -j
+}
+
+flagfmt = 'a'
+args = `{stringjoin ' | ' `{{for (k in $skillkeys) echo $k} |sed 's/^skill//'}}
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+if (! ~ $flaga '') {
+	for (k in $skillkeys) {
+		echo skill $k
+		echo
+
+		vacancies $skills($$k)
+	}
+
+	exit 0
+}
+
+if (~ $1 '') {
+	usage
+	exit usage
+}
+
+id = $skills($(skill$1))
+
+if (~ $id '') {
+	echo >[1=2] invalid skill: $1
+	exit 1
+}
+
+vacancies $id

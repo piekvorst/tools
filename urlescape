@@ -1,0 +1,47 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# FIXME: rewrite in Go
+
+# FIXME: should I make -q the default?
+
+. 9.rc
+
+pathEscape = `''{cat <<'!'}
+import sys, urllib.parse as ul
+print(ul.quote(sys.stdin.read()), end='')
+!
+
+pathUnescape = `''{cat <<'!'}
+import sys, urllib.parse as ul
+print(ul.unquote(sys.stdin.read()), end='')
+!
+
+queryEscape = `''{cat <<'!'}
+import sys, urllib.parse as ul
+print(ul.quote_plus(sys.stdin.read()), end='')
+!
+
+queryUnescape = `''{cat <<'!'}
+import sys, urllib.parse as ul
+print(ul.unquote_plus(sys.stdin.read()), end='')
+!
+
+flagfmt = 'd,p,q'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+switch ($"flagp:$"flagq) {
+case 1:1
+	echo >[1=2] path and query escapes are mutually exclusive
+	exit args
+case 1:
+	if (~ $flagd '') exec python -c $pathEscape
+	if not exec python -c $pathUnescape
+case :1 :
+	if (~ $flagd '') exec python -c $queryEscape
+	if not exec python -c $queryUnescape
+}

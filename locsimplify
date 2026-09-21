@@ -1,0 +1,17 @@
+#!/usr/bin/env rc
+
+# FIXME: should be a function
+# FIXME: handle arguments with newlines
+#
+# locsimplify simplifies location variations, such as :1:2 and
+# others, to line numbers. The primary reason is to guide the eye
+# (the whole line is easier to see) and make locations more
+# human-readable. It also simplifies string processing, e.g.
+# extracting line number.
+
+. 9.rc
+
+num = '[1-9][0-9]*'
+
+for (s)
+	echo -n $s |sed 's/:('$num')(:'$num')?(-'$num'(:'$num')?)?$/:\1/'

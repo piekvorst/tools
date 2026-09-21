@@ -1,0 +1,19 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+files = ()
+for (f in *)	{
+	if (test -f $f && test -r $f)
+		files = ($files $f)
+}
+
+for (type in sha256) {
+	file1 = $type^sums
+	command = $type^sum
+
+	if (test -f $file1 && test -r $file1)
+		/usr/bin/diff <{sort $file1} <{$command $files |sort}
+}

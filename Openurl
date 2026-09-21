@@ -1,0 +1,47 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# FIXME: selecting file in directory implementation is too weak
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+buf = $TMPDIR/urlopen$pid.`{seq 1}
+bufheaders = $buf(1)
+
+curl = (curl --location --no-progress-meter --continue-at - -D $bufheaders)
+
+fn sigexit {rm -f $buf}
+
+fn binary {diff /dev/null $1 |sed 1p |grep -is binary}
+
+if (! url = `{trurl --verify -- $1})
+	exit args
+
+body = $TMPDIR/`{trurl --get '{host}/{path}' -- $url}
+
+mkdir -p `{basename -d $body}
+
+if (! resp = `{$curl -o $body -w '%{http_code}' -- $url}) {
+	echo >[1=2] curl failed
+	exit curl
+}
+
+if (! ~ $resp 2[0-9][0-9] 416) {
+	cat >[1=2] $bufheaders
+	exit http
+}
+
+if (! binary $body) {
+	plumb $body
+}
+if not {
+	plumb -d edit `{basename -d $body}
+	winid = `{findwindow `{basename -d $body}}
+	winaddr /`{samescape `{basename $body}}/
+	winctl dot=addr
+	winctl show
+}

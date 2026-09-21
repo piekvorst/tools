@@ -1,0 +1,27 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# FIXME: do not run mv if different files are being moved to the same
+# dest
+
+. 9.rc
+. lib.rc
+
+# horizontal tabulation, line feed, vertical tabulation, form feed,
+# carriage return, space, nbsp, nnbsp
+#
+whitespace = '\x09-\x0d\x20\xa0\x202f'
+
+for (f) {
+	{
+		g = `{basename -d $f}/`{basename $f |tr A-Z a-z |tr -d $whitespace}
+		if (! mv $f $g)
+			echo >[1=2] mv failed at $f
+	} &
+
+	wgadd wg 1000
+}
+
+wgwait wg
+exit 0

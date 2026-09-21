@@ -1,0 +1,3 @@
+#!/usr/bin/env rc
+GOPATH = `{go env GOPATH}
+exec $GOPATH/bin/L rn $*

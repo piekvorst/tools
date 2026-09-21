@@ -1,0 +1,16 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+for (winid in `{9p read acme/index |awk '{print $1}'}) {
+	winctl font $1 &
+	wgadd wg 10
+}
+
+wgwait wg
+exit 0

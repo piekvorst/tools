@@ -1,0 +1,126 @@
+# libstring.rc requires 9.rc
+
+# FIXME: safety
+#
+fn stringjoin {
+	sep = $1 elems = $*(2-) s = '' out = '' {
+		out = $elems(1)
+		for (s in $elems(2-))
+			out = $out$sep$s
+
+		echo -n $out
+	}
+}
+
+# trimsuffix prints its fd0 without the provided trailing suffix
+# string. If a line doesn't end with suffix, it is printed unchanged.
+#
+# Example:
+#
+# {
+#	echo foo.mov
+#	echo bar.heic
+# } |trimsuffix .heic
+#
+# Output:
+#
+# foo.mov
+# bar
+#
+fn trimsuffix {
+	awk -v suffix=$1 '{
+		if (length(suffix) <= length($0) &&
+			substr($0, length($0)-length(suffix)+1) == suffix) {
+
+			print substr($0, 1, length($0)-length(suffix));
+		} else {
+			print $0;
+		}
+	}'
+}
+
+# The same as trimsuffix but with case ignored.
+#
+fn trimsuffixignorecase {
+	awk -v suffix=$1 '{
+		if (length(suffix) <= length($0) &&
+			tolower(substr($0, length($0)-length(suffix)+1)) == tolower(suffix)) {
+
+			print substr($0, 1, length($0)-length(suffix));
+		} else {
+			print $0;
+		}
+	}'
+}
+
+fn grepsuffix {
+	awk -v suffix=$1 '
+		length(suffix) <= length($0) &&
+		substr($0, length($0)-length(suffix)+1) == suffix
+	'
+}
+
+fn grepsuffixignorecase {
+	awk -v suffix=$1 '
+		length(suffix) <= length($0) &&
+		tolower(substr($0, length($0)-length(suffix)+1)) == tolower(suffix)
+	'
+}
+
+# minindent prints the smallest number of leading tabs or spaces
+# found among all non-blank lines of the input.
+#
+# Tabs and spaces are treated as distinct indentation styles.
+# If both styles appear, the function prints an error message
+# and exits with a non-zero status, because comparing them
+# is ambiguous.
+#
+# Blank lines (containing only tabs, spaces, or nothing) are
+# ignored.
+#
+# Mixed tabs and spaces within a single line do not cause a
+# failure; only the first character determines the indentation
+# style. This allows custom alignment or nesting styles that
+# intentionally combine both characters.
+#
+# If any non-blank line has no leading tabs or spaces, the minimum
+# indentation is 0. This prevents the mixed-style error, since
+# it's not ambiguous to compare 0 tabs with 0 spaces.
+#
+fn minindent {
+	awk '
+		/^[	 ]*$/ {
+			next;
+		}
+
+		match ($0, /^	+/) {
+			if (tabindent == "" || RLENGTH < tabindent)
+				tabindent = RLENGTH;
+		}
+
+		match($0, /^ +/) {
+			if (spaceindent == "" || RLENGTH < spaceindent)
+				spaceindent = RLENGTH;
+		}
+
+		/^[^	 ]/ {
+			tabindent = "";
+			spaceindent = "";
+			exit;
+		}
+
+		END {
+			if (spaceindent != "" && tabindent != "") {
+				print "mixed indentation (tabs and spaces)" >"/dev/stderr";
+				exit 1;
+			}
+
+			if (spaceindent != "")
+				print spaceindent;
+			else if (tabindent != "")
+				print tabindent;
+			else
+				print 0;
+		}
+	'
+}

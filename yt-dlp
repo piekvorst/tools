@@ -1,0 +1,2 @@
+#!/usr/bin/env rc
+exec /usr/bin/yt-dlp --no-progress $*

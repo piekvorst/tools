@@ -1,0 +1,149 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# camel [-csA] converts words between snake_case and camelCase.
+#
+# Without arguments, camel converts words from snake_case to
+# camelCase.
+#
+# camel -c capitalizes the first letter (PascalCase).
+#
+# camel -s performs the reverse: camelCase to snake_case.
+#
+# camel preserves some common acronyms. Use -A to disable. For both
+# typographical and implementation reasons, only all-consonant 3+
+# letter and single-vowel 4-letter acronyms are preserved.
+#
+# echo hello_world HELLO_WORLD plan_9 |camel
+# helloWorld helloWorld plan9
+#
+# Leading underscores are always ignored since it's too unclear how
+# they should be handled:
+#
+# % echo __hello_world |camel helloWorld
+# __helloWorld
+#
+# camel [-c] doesn't process words without an underscore to preserve
+# the original letter case:
+#
+# % echo HTTP_ID HTTP HTTPHeader |camel
+# httpId HTTP HTTPHeader
+#
+# camel -s is based on letter case change:
+#
+# % echo IOStreamID plan9FromBellLabs |camel -s
+# iostream_id plan9_from_bell_labs
+#
+# Acronyms adapt to camelCase or PascalCase conversion:
+#
+# % echo http_json_request |camel
+# httpJSONRequest
+# % echo http_json_request |camel -c
+# HTTPJSONRequest
+#
+# The acronym implementation uses substring matching rather than
+# word-boundary matching (an architectural limitation):
+#
+# % echo tcpdump_code |camel -c
+# TCPdumpCode
+
+. 9.rc
+. libstring.rc
+
+fs = '
+	 '
+
+acronyms = `{
+	stringjoin '|' `$fs{
+		echo BSON
+		echo CMYK CSRF CSS
+		echo FTP
+		echo DHCP DNS
+		echo HTML HTTP HTTPS
+		echo JPEG JSON JVM JWT
+		echo LDAP
+		echo MPEG
+		echo NFS NTP
+		echo PDF PNG POP3
+		echo RFC RGB RPC RSS
+		echo SMTP SQL SSH SSL SVG
+		echo TCP TLS
+		echo XML
+		echo YAML
+		echo WWW
+	}
+}
+
+fn camelacronyms {ssam -e 'x/'$acronyms'/ -#0+#1,. |tr A-Z a-z'}
+
+fn fmtacronyms {
+	r = `{
+		echo -n $acronyms |
+		ssam -e 'x/[A-Z0-9]+/ -#0+#1,. |tr A-Z a-z'
+	} {
+		ssam -e 'x/'$r'/ |tr a-z A-Z'
+	}
+}
+
+fn camel {
+	ssam -e 'x/[a-zA-Z][a-zA-Z_0-9]*/ g/_/ {
+		x/_?[a-zA-Z0-9]/ {
+			g/_/ {
+				x/_/ d
+				x/[a-z]/ |tr a-z A-Z
+			}
+			v/_/ |tr A-Z a-z
+		}
+	}' |
+	{
+		if (~ $flagA '') fmtacronyms
+		if not cat
+	}
+}
+
+fn c {
+	ssam -e 'x/[a-zA-Z][a-zA-Z_0-9]*/ g/_/ {
+		-#0+/./ |tr a-z A-Z
+		-#0+#1,. x/_?[a-zA-Z]/ {
+			g/_/ {
+				x/_/ d
+				x/[a-z]/ |tr a-z A-Z
+			}
+			v/_/ |tr A-Z a-z
+		}
+	}' |
+	{
+		if (~ $flagA '') fmtacronyms
+		if not cat
+	}
+}
+
+fn s {
+	{
+		if (~ $flagA '') camelacronyms
+		if not cat
+	} |
+	ssam -e 'x/[a-zA-Z][a-zA-Z_0-9]*/ x/[a-z0-9]?[A-Z]/ {
+		g/../ +#0-/./ {
+			i/_/
+			|tr A-Z a-z
+		}
+		v/../ |tr A-Z a-z
+	}'
+}
+
+flagfmt = 'c,s,A'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+if (! ~ $flagc '' && ! ~ $flags '') {
+	echo >[1=2] flags c and s are mutually exclusive
+	exit args
+}
+
+if (! ~ $flagc '') c
+if not if (! ~ $flags '') s
+if not camel

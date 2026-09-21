@@ -1,0 +1,14 @@
+#!/usr/bin/env rc
+
+. 9.rc
+
+# Do not do anything if at least one line is not indented.
+
+# Do not touch lines consisting only of whitespaces. Thus, the
+# trailing } in C-like languages are not indented when the whole
+# block is selected.
+
+exec ssam -e 'v/^[^ 	]/ {
+	g/^	/ v/^ / x g/[^ 	]/ x/^	/ d
+	g/^ / v/^	/ x g/[^ 	]/ x/^ / d
+}'

@@ -1,0 +1,198 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# Dependencies: plan9port, curl, trurl
+#
+# Environment: OXO_INSTANCE = 'http://0x0.st'
+#
+# To do: multiple concurrent files and urls
+
+. 9.rc
+. lib.rc
+
+
+if (~ $TMPDIR '')
+	TMPDIR = /tmp
+
+buf = $TMPDIR/0x0$pid.`{seq 2}
+bufheaders = $buf(1)
+bufbody = $buf(2)
+touch $buf
+
+oxoinstance = ''
+
+curl = curl
+curl = ($curl --location)
+curl = ($curl --no-progress-meter)
+curl = ($curl -H 'User-Agent: piekvorst/tools/0x0')
+
+# curl error handling: fail on >=400 and retain the headers and body,
+# though not on /dev/fd1 (the default option)
+#
+curl = ($curl --fail-with-body -D $bufheaders -o $bufbody)
+
+fn sigexit {rm -f $buf}
+
+fn usage {
+	>[1=2] {
+		echo 'Upload file: 0x0 [-i instance] [-s] [-e days] file'
+		echo 'Upload stdin: echo hello world |0x0 [-i instance] [-s] [-e days]'
+		echo 'Remove: 0x0 -t token -d url'
+		echo 'Set expires: 0x0 -t token -e days url'
+	}
+	exit usage
+}
+
+if (! ~ $OXO_INSTANCE '') oxoinstance = $OXO_INSTANCE
+if not oxoinstance = 'http://0x0.st'
+
+flagfmt = 'd,s,i instance,e expires,t token'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+instance = ''
+if (! ~ $flagi '') {
+	if (! instance = `{trurl --verify -- $flagi}) {
+		echo >[1=2] instance is not a valid url
+		exit args
+	}
+}
+
+secret = ''
+if (! ~ $flags '')
+	secret = 1
+
+expires = ''
+if (! ~ $flage '') {
+	if (! ~ `{echo -n $flage |grep -c '^([0-9]|[1-9][0-9]*)(\.[0-9]+)?$'} 1) {
+		echo >[1=2] expires is not a number
+		exit args
+	}
+	expires = `{echo 24 '*' $flage |bc}
+}
+
+token = ''
+if (! ~ $flagt '') {
+	if (! ~ `{echo -n $flagt |grep -c .} 1) {
+		echo >[1=2] token is not a single non-empty line
+		exit args
+	}
+
+	token = $flagt
+}
+
+delete = ''
+if (! ~ $flagd '')
+	delete = 1
+
+if (! ~ $#* 0 1) {
+	echo >[1=2] too many arguments
+	exit args
+}
+
+if (! ~ $delete '') {
+	if (~ $token '') {
+		echo >[1=2] empty token
+		exit args
+	}
+	if (! url = `{trurl --verify -- $1}) {
+		echo >[1=2] argument is not a valid url
+		exit args
+	}
+	if (! ~ $instance '' || ! ~ $secret '' || ! ~ $expires '') {
+		echo >[1=2] redundant options
+		exit args
+	}
+
+	if (! $curl -F token=$token -F delete= -- $url) {
+		cat >[1=2] $bufheaders $bufbody
+		exit curl
+	}
+	exit 0
+}
+
+if (! ~ $token '' && ! ~ $expires '') {
+	if (! url = `{trurl --verify -- $1}) {
+		echo >[1=2] argument is not a valid url
+		exit args
+	}
+	if (! ~ $instance '' || ! ~ $secret '') {
+		echo >[1=2] redundant options
+		exit args
+	}
+
+	if (! $curl -F token=$token -F expires=$expires -- $url) {
+		cat >[1=2] $bufheaders $bufbody
+		exit curl
+	}
+	exit 0
+}
+
+if (! ~ $token '') {
+	echo >[1=2] redundant options
+	exit args
+}
+
+if (~ $#* 1 && test ! -f $1 -o ! -r $1) {
+	echo >[1=2] argument is either not a file or unreadable
+	exit args
+}
+
+if (~ $#* 1) file = $1
+if not file = /dev/stdin
+
+# curl does not accept /dev/stdin in --form. Thus, make /dev/stdin a
+# regular file.
+#
+# Preserve file extensions. 0x0 treats the leftmost-longest \..*$ as
+# extension.
+#
+buf = ($buf $TMPDIR/0x0$pid.`{basename $file})
+buffile = $buf($#buf)
+cat $file >$buffile
+
+formsecret = `{
+	if (! ~ $secret '') {
+		echo -F
+		echo secret=
+	}
+}
+
+formexpires = `{
+	if (! ~ $expires '') {
+		echo -F
+		echo expires=$expires
+	}
+}
+
+if (! ~ $instance '') url = $instance
+if not url = $oxoinstance
+
+if (! token = `{
+	$curl \
+		-w '%header{x-token}' \
+		$formsecret \
+		$formexpires \
+		-F file=@$buffile \
+		-- \
+		$url
+}) {
+	cat >[1=2] $bufheaders $bufbody
+	exit curl
+}
+
+if (~ $token '') {
+	echo >[1=2] no token
+	exit 1
+}
+
+url = `{cat $bufbody |sed 1q}
+echo $url
+
+>[1=2] {
+	echo 0x0 -t $token -d $url
+	echo 0x0 -t $token -e 365 $url
+}

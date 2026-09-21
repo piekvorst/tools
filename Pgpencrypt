@@ -1,0 +1,12 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. libacme.rc
+
+if (! winid = `{winarg $*})
+	die 'cannot infer the argument'
+
+winpipe gpg --encrypt --armor --recipient azkhabibulin@ozon.ru

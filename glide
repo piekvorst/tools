@@ -1,0 +1,15 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+progname = `{9 basename $0}
+
+tmpdir = /tmp/$progname$pid
+mkdir -p $tmpdir
+
+fn sigexit {rm -r $tmpdir}
+
+fd0 = $tmpdir/fd0
+cat >$fd0
+cat $fd0
+$* <$fd0

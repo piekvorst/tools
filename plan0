@@ -1,0 +1,28 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+
+xorg0args = ()
+rc = ()
+
+for (v) {
+	if (! ~ $v --) {
+		rc = ($rc $v)
+	}
+	if not {
+		xorg0args = $rc
+		rc = ()
+	}
+}
+
+if (~ $rc '')
+	exit 0
+
+exec xorg0 $xorg0args sh -l -c `{
+	rcstring exec rc -l -c `{
+		rcstring exec $rc
+	}
+}

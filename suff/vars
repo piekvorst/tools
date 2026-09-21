@@ -1,0 +1,27 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+awk '
+	{
+		base = $0
+		sub(/\.[^.]+$/, "", base)
+
+		suffix = $0
+		sub(/.+\./, "", suffix)
+
+		dict[base] = dict[base] " " suffix
+		ndict[base]++
+	}
+
+	END {
+		for (base in dict) {
+			if (ndict[base] > 1)
+				print dict[base]
+		}
+	}
+' |
+sort |
+uniq

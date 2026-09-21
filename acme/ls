@@ -1,0 +1,30 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# acme/ls reports files opened by Acme.
+#
+# acme/ls does not print relative names because it does not know
+# Acme's wdir.
+#
+# acme/ls doesn't print names containing newlines to avoid encoding
+# dilemmas.
+#
+# Examples
+#     grep -n pattern `{acme/ls}
+
+. 9.rc
+
+if (! ~ $* '') {
+	echo >[1=2] invalid syntax
+	exit 1
+}
+
+9p read acme/index |
+sed 's/^'`{seq -f . 60 |tr -d '\xa'}'(.*) Del Snarf.*/\1/' |
+while (name = `{read}) {
+	if (~ $name /* && test -e $name)
+		echo $name
+}
+
+exit 0

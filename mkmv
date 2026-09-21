@@ -1,0 +1,7 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+ls -- $* |sed 's/.+/mv & &/'

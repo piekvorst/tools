@@ -1,0 +1,41 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+
+fn usage {die 'usage: testprint [-n]'}
+
+nflag = ()
+
+while (! ~ $#* 0) switch ($1) {
+case -n
+	nflag = n
+	* = $*(2-)
+case *
+	usage
+}
+
+find . -type f |
+sort |
+grep '.\.go$' |
+grep -v '._test\.go$' |
+while (file = `{read}) {
+	testfile = `{echo -n $file |sed 's/...$/_test.go/'}
+	if (test ! -f $testfile -o ! -r $testfile)
+		testfile = /dev/null
+
+	grep -n '^func( *\([^)]+\) *| +)[A-Z]' /dev/null $file |
+	while (match = `{read}) {
+		func = `{echo -n $match |sed 's/.+func( *\([^)]+\) *| +)([A-Z][a-zA-Z_0-9]*).*/\2/'}
+
+		cmd = (grep '^func +Test_*'$func' *\(' $testfile)
+		if (! ~ $nflag '' && ! $cmd >/dev/null)
+			echo $match
+		if (~ $nflag '' && $cmd >/dev/null)
+			echo $match
+	}
+}
+
+status = ''

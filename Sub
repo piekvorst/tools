@@ -1,0 +1,71 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# Sub is an interactive string-literal find & replace tool that lets
+# the user see the state before and after each substitution.
+#
+# Try has two modes. When no arguments are given, Try looks for the
+# snarf content and replaces it with the selection taken on the first
+# run. It works best when the user overwrites the old name with a new
+# one, then selects the new name with ^[. When arguments are present,
+# Try looks for the selection taken on the first run and replaces it
+# with the arguments. If the selection is nil in either case, it is
+# automatically expanded to the surrounding /[a-zA-Z_0-9]*/.
+#
+# To replace one value with an arbitrary slice of text, the former
+# method may work better because it avoids shell expansions. Snarf
+# the old value, the new one somewhere, and Try.
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+fn readsnarf {
+	switch (`{uname}) {
+	case Darwin
+		pbpaste
+	case Linux
+		xclip -selection clipboard -o
+	}
+}
+
+if (! winread ctl >/dev/null) {
+	echo >[2=1] no window context
+	exit win
+}
+
+firstdot = /tmp/looks$winid
+touch $firstdot
+
+acmeaddr >/dev/null
+winctl dot=addr
+dot = `''{winread xdata}
+
+if (~ $#* 0) {
+	if (~ `''{readsnarf} '')
+		exit 0
+
+	if (! ~ `''{readsnarf} $dot) {
+		echo -n $dot >$firstdot
+		winlook `''{readsnarf}
+	}
+	if not if (! ~ $dot `''{cat $firstdot}) {
+		winreplace cat $firstdot
+	}
+	if not {
+		winlook $dot
+	}
+}
+if not {
+	if (! ~ $"* $"dot) {
+		echo -n $dot >$firstdot
+		winreplace echo -n $"*
+	}
+	if not {
+		winlook `''{cat $firstdot}
+	}
+}
+
+exit 0

@@ -1,0 +1,49 @@
+#!/usr/bin/env rc
+
+# FIXME: steal gotypes' handling of type blocks
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+ident = '[a-zA-Z_][a-zA-Z_0-9]*'
+
+fn usage {die 'Brief *.c *.go *.proto'}
+
+if (! winid = `{winarg $*})
+	die 'cannot infer arguments'
+
+switch (`{winname}) {
+case *.go
+	echo -n `{winname}
+	echo
+
+	winread body |
+	ssam -e '{
+		d
+		x/^type *\(([^)].*\n|\n)*\)|^func *\(([^)]|\n)+\).*|.*/ {
+			g/^type *\(/ x/^	'$ident'/ -#0+/'$ident'/ {
+				t $
+				$ a/\n/
+			}
+			g/^(func( *\(([^)]|\n)+\) *| +)|type +|const +|var +)'$ident'/ {
+				-#0+/^(func( *\(([^)]|\n)+\) *| +)|type +|const +|var +)/+/'$ident'/ {
+					t $
+					$ a/\n/
+				}
+			}
+		}
+	}' |
+	mc
+case *.proto
+	echo -n `{winname}
+	echo
+
+	winread body |
+	sed -n '/^[	 ]*(enum|message|rpc) +('$ident').*/ s//\2/p' |
+	grep -v '(Request|Response)$' |
+	mc
+case *
+	usage
+}

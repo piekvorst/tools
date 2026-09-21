@@ -1,0 +1,57 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+fs = '
+	 '
+
+buf = /tmp/decrypt$pid.`{seq 2}
+buffd1 = $buf(1)
+buffd2 = $buf(2)
+
+fn sigexit {rm -f $buf}
+
+if (! winid = `{winarg $*})
+	die 'cannot infer the argument'
+
+if (~ `$fs{winextract |wc -c} 0) {
+	if (
+		winextract '-+' |grep -s 'BEGIN PGP MESSAGE' &&
+		winextract '+1+/^-/-+' |grep -s 'END PGP MESSAGE'
+	) {
+		addr = `$fs{acmeaddr '-1+1,+1+/^-/-+'}
+	}
+	if not if (
+		winextract '-/^-/-+' |grep -s 'BEGIN PGP MESSAGE' &&
+		winextract '+/^-/-+' |grep -s 'END PGP MESSAGE'
+	) {
+		addr = `$fs{acmeaddr '-/^-/,+/^-/-+'}
+	}
+	if not if (
+		winextract '-+' |grep -s 'END PGP MESSAGE' &&
+		winextract '-1-/^-/-+' |grep -s 'BEGIN PGP MESSAGE'
+	) {
+		addr = `$fs{acmeaddr '-1-/^-/,-+'}
+	}
+	if not {
+		die 'pgp message not found'
+	}
+
+	winaddr '#'$addr(1)',#'$addr(2)
+	winctl dot=addr
+}
+
+if (
+	{winctl addr=dot; winread xdata} |
+	gpgdecrypt >$buffd1 >[2]/dev/null
+)
+	winpipe cat $buffd1
+
+# winrc leaves the error in win window, no need for another +Errors.
+#
+exit 0

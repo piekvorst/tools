@@ -1,0 +1,13 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+fn clean {sed 's/^[	 ]*[0-9]+[	 ]+//'}
+
+if (~ $#* 0)
+	* = (.)
+
+for (dir)
+	comm -23 <{du -a $dir |clean |sort} <{du $dir |clean |sort}

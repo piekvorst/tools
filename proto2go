@@ -1,0 +1,26 @@
+#!/usr/bin/env rc
+
+# FIXME: superseded by tocamel -c
+
+e1 = 'x g/./ {
+	d
+	a/	/
+	-#0+/[^	 ]+/+/[^	 ]+/ t +#0
+	a/ /
+	-#0+/[^	 ]+/ t +#0
+	a/\n/
+}'
+
+e2 = 'x g/./ -#0+/[^	 ]+/ {
+	-#0+/./ |tr a-z A-Z
+	x/_./ {
+		-#0+/./ d
+		+#0-/./ |tr a-z A-Z
+	}
+}'
+
+e3 = 'x g/./ -#0+/[^	 ]+/+/[^	 ]+/ {
+	g/double/ c/float64/
+}'
+
+ssam -e $e1 |ssam -e $e2 |ssam -e $e3

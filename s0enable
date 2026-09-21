@@ -1,0 +1,2 @@
+#!/usr/bin/env rc
+exec winstruct -c run0 systemctl enable $*

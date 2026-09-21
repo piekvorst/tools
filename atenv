@@ -1,0 +1,42 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+oldpath = $path
+
+. 9.rc
+. lib.rc
+
+init = /var/tmp/atenv$pid.init
+job = /var/tmp/atenv$pid.job
+
+flagfmt = 'e envs,s shell'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+if (! ~ $flags '') shell = $flags
+if not shell = /bin/sh
+
+{
+	echo '#!'$PLAN9/bin/rc
+	for (e in `{echo $flage |sed 's/,/\n/g'}) {
+		echo -n $e = `''{rcstring $$e}
+		echo
+	}
+	echo $job
+	echo rm -f $job $init
+} >$init
+chmod +x $init
+
+{
+	echo '#!'$shell
+	cat
+} >$job
+chmod +x $job
+
+path = $oldpath
+
+echo $PLAN9/bin/rc -c $init |
+at $*

@@ -1,0 +1,23 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# mysql/ls copies /bin/ls typographical semantics: short by default,
+# details with args.
+
+. 9.rc
+
+fn escape {sed 's/`/``/g'}
+
+if (~ $#* 0) {
+	echo show tables |
+	mysql |
+	awk '/^Tables_in_/ {print $2}'
+}
+if not {
+	{{for (arg) echo $arg} |sed 's:^'`{pwd}'/::'} |
+	escape |
+	sed 's/.*/show create table `&`;/' |
+	mysql |
+	sed 's/\\n/\n/g'
+}

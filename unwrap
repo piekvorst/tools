@@ -1,0 +1,25 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+tmp = /tmp/unwrap$pid.html
+
+if (~ $unwrapsec '')
+	unwrapsec = 5
+
+fn sigexit {rm -f $tmp}
+
+>$tmp {
+	echo '<html>'
+	echo '<body>'
+	echo '<pre>'
+	cat
+	echo '</pre>'
+	echo '</body>'
+	echo '</html>'
+}
+
+web $tmp
+sleep $unwrapsec

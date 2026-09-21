@@ -1,0 +1,37 @@
+# libgit.rc requires 9.rc and /bin/tr
+
+fn githttpurl {@ {
+	if (scheme = `{trurl --verify --no-guess-scheme --get '{scheme}' -- $1 >[2]/dev/null}) {
+		if (! ~ $scheme ssh git http https ftp ftps) {
+			echo >[1=2] unsupported scheme
+			exit 1
+		}
+
+		trurl --get 'http://{host}/{path}' -- $1
+	}
+
+	# scp-like syntax, see git-fetch(1):/GIT.URLS/
+	#
+	if not if (~ `{echo -n $1 |sed 's/^[^\/]+:.*//'} '') {
+		echo -n $1 |sed 's|^([^@:]*@)?([^:]+):(.*)|http://\2/\3|'
+	}
+
+	if not {
+		echo >[1=2] unsupported url
+		exit 1
+	}
+}}
+
+fn plumbmergerequest {@ {
+	if (! git rev-parse --is-inside-work-tree >/dev/null >[2=1]) {
+		echo >[1=2] not inside a git work tree
+		exit git
+	}
+
+	if (! remote = `{git ls-remote --get-url}) {
+		echo >[1=2] no remote url
+		exit git
+	}
+
+	plumb `{githttpurl $remote |sed 's/\.git$//'}/-/merge_requests/$1
+}}

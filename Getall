@@ -1,0 +1,42 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# Get all non-dirty windows whose names indicate existing regular
+# files. Non-modified (as defined by /bin/cmp) are skipped to work
+# around Get removing undo history, unexpected by user.
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+ctlfs = '
+	 '
+ctldirty = 5
+
+if (~ $TMPDIR '')
+	TMPDIR = /tmp
+
+buf = $TMPDIR/getall$pid
+mkdir -p $buf
+
+fn sigexit {rm -r $buf}
+
+for (winid in `{9p read acme/index |awk '{print $1}'}) {
+	buf = $buf/$winid {
+		ctl = `$ctlfs{winread ctl}
+		winread body >$buf
+
+		~ $ctl($ctldirty) 0 &&
+		! ~ `{winname} '' &&
+		test -r `{winname} &&
+		! cmp -s $buf `{winname} &&
+		winctl get
+	} &
+
+	wgadd wg 10
+}
+
+wgwait wg
+exit 0

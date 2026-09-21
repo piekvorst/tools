@@ -1,0 +1,16 @@
+#!/usr/bin/env rc
+
+if (~ $* '')
+	exit 0
+
+newpath = ()
+for (p in $path) {
+	if (! ~ $p $PLAN9/bin)
+		newpath = ($newpath $p)
+}
+
+if (! ~ $#path $#newpath)
+	newpath = ($newpath $PLAN9/bin)
+
+path = $newpath
+$*

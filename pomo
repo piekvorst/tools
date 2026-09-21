@@ -1,0 +1,27 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+fn percent {awk -v 'FS=[()%]' '/Current brightness:/ {print $2}'}
+
+fn blink {
+	brightnessctl --quiet -d $pomodevice set $2%
+	sleep 2
+	brightnessctl --quiet -d $pomodevice set $1%
+	sleep 1
+	brightnessctl --quiet -d $pomodevice set $2%
+	sleep 2
+	brightnessctl --quiet -d $pomodevice set $1%
+	sleep 1
+	brightnessctl --quiet -d $pomodevice set $2%
+}
+
+sleep 1500
+
+v = `{brightnessctl --quiet -d $pomodevice info |percent}
+if (~ $v [0-9] [1-4][0-9])
+	blink $v 80
+if not
+	blink $v 20

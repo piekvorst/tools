@@ -1,0 +1,7 @@
+#!/usr/bin/env rc
+
+exec ssam -e '{
+	g/^	/ v/^ / x g/[^ 	]/ i/	/
+	g/^ / v/^	/ x g/[^ 	]/ i/ /
+	v/^	/ v/^ / x g/[^ 	]/ i/	/
+}'

@@ -1,0 +1,81 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. libstring.rc
+
+nl = '
+'
+
+tmpdir = /tmp/`{basename -d $0}$pid
+mkdir -p $tmpdir
+
+tmpfd0 = $tmpdir/fd0
+
+fn sigexit {rm -r $tmpdir}
+
+fn filter {
+	if (~ $flagi '')
+		cat $tmpfd0 |grepsuffix $1 |trimsuffix $1
+	if not
+		cat $tmpfd0 |grepsuffixignorecase $1 |trimsuffixignorecase $1
+}
+
+fn recoversuffix {
+	if (~ $flagi '') {
+		if (! ~ $newsuffix '')
+			awk -v newsuffix=$1 '{print $0 newsuffix}'
+		if not
+			cat
+	}
+	if not {
+		awk -v newsuffix=$1 '
+			NR == FNR {
+				if (length(newsuffix) <= length($0)) {
+					base = substr($0, 1, length($0)-length(newsuffix))
+					suffix = substr($0, length($0)-length(newsuffix)+1)
+					if (tolower(suffix) == tolower(newsuffix))
+						dict[base] = suffix
+				}
+
+				next
+			}
+
+			{print $0 dict[$0]}
+		' $tmpfd0 /dev/stdin
+	}
+}
+
+flagfmt = '1,2,3,i'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+comm = comm
+for (f in 1 2 3) {
+	if (! ~ $(flag$f) '')
+		comm = ($comm -$f)
+}
+
+newsuffix = ''
+if (~ $"flag1$"flag3 11)
+	newsuffix = $2
+if not if (~ $"flag2$"flag3 11)
+	newsuffix = $1
+
+if (~ $1 *''$nl''*) {
+	echo >[1=2] arg 1 is invalid: $1
+	exit 1
+}
+
+if (~ $2 *''$nl''*) {
+	echo >[1=2] arg 2 is invalid: $2
+	exit 1
+}
+
+sort >$tmpfd0
+
+$comm <{filter $1} <{filter $2} |
+recoversuffix $newsuffix

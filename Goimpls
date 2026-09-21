@@ -1,0 +1,41 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+if (! winid = `{winarg $*}) {
+	echo >[1=2] cannot infer the argument
+	exit args
+}
+
+# User can close the window while waiting, so we should extract the
+# word before it's too late.
+#
+winwordaddr >/dev/null
+word = `{winread xdata}
+
+if (! files = `{
+	gopls implementation `{winname}':#'`{winbyte |awk '{print $1}'}
+}) {
+	echo >[1=2] gopls failed
+	exit gopls
+}
+
+if (~ $#files 1) {
+	f = `{locsimplify $files |sed 's/:[1-9][0-9]*$//'}
+	plumb $f
+	winid = `{findwindow $f}
+	winaddr `{locsimplify $files |sed -n 's/.*:([1-9][0-9]*)$/\1/p'}
+	winctl dot=addr
+	winctl show
+
+	exit 0
+}
+
+echo $word
+
+cutprefix `{pwd}/ $files |locsimplify `{cat} |sort |mc -80

@@ -1,0 +1,95 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+. libstring.rc
+
+progname = `{basename $0}
+
+tmpdir = /tmp/$progname$pid
+mkdir -p $tmpdir
+
+fn sigexit {rm -r $tmpdir}
+
+fn allmatch {! grep -sv $*}
+
+fn plan9fmt {@ {
+
+	# The fmt command replaces $tabstop spaces with a single tab. This
+	# behavior breaks $blank.
+	#
+	# The remedy in fmtprefix is to temporarily remove indentation
+	# (via $indentpattern) and set $tabstop to a value that exceeds
+	# $blank + ' '. Unfortunately, this remedy backfires on nested
+	# indentation, causing fmt to interpret tab length in a way that
+	# is ambiguous to the user.
+	#
+	# Ideally, I want fmt to not collapse spaces.
+	#
+	if (! ~ $blank '')
+		tabstop = `{echo_s $blank |awk '{print length}' |echo_s `{cat} + 2 |bc}
+
+	/usr/lib/plan9/bin/fmt -l 66 $*
+}}
+
+fn gnufmt {
+	/usr/local/bin/fmt -w 66 $*
+}
+
+fn fmt {
+	plan9fmt $*
+}
+
+fn fmtprefix {@ {
+	prefix = `{samescape $1}
+
+	fd0 = $tmpdir/fmtprefixfd0
+	cat >$fd0
+
+	blank = ''
+	for (_ in `{echo_s $1 |awk '{print length}' |seq `{cat}})
+		blank = $blank' '
+
+	if (cat $fd0 |allmatch '^$|^[	 ]*'$prefix) {
+		cat $fd0 |
+		sed 's/^'$indentpattern'//' |
+		sed 's/^([	 ]*)'$prefix' */\1'$blank' /' |
+		fmt $*(2-) |
+		sed '
+			s/^([	 ]*)'$blank' /\1'$prefix' /
+			/./!s/^/'$prefix' /
+		' |
+		sed 's/^/'$indentpattern'/'
+
+		exit 0
+	}
+
+	exit 1
+}}
+
+fd0 = $tmpdir/fd0
+cat >$fd0
+
+if (! level = `{cat $fd0 |minindent}) {
+	echo >[1=2] minindent failed
+	exit 1
+}
+
+indentchar = ''
+if (! ~ $level 0)
+	indentchar = `{cat $fd0 |sed 1q |sed 's/(.).*/\1/'}
+
+indentpattern = ''
+for (_ in `{seq $level})
+	indentpattern = $indentpattern$indentchar
+
+fmtprefix '//' $* <$fd0 ||
+fmtprefix '#' $* <$fd0 ||
+fmtprefix '--' $* <$fd0 ||
+fmtprefix '> > > >' $* <$fd0 ||
+fmtprefix '> > >' $* <$fd0 ||
+fmtprefix '> >' $* <$fd0 ||
+fmtprefix '>' $* <$fd0 ||
+fmt $* <$fd0

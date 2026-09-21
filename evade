@@ -1,0 +1,52 @@
+#!/usr/bin/env rc
+
+. lib.rc
+
+tmp = $TMPDIR/evade$pid
+
+fn sigexit {rm -f $tmp}
+
+fn usage {die 'evade [-e] file cmd: run a command and print its stdout or stderr only if it differs from file'}
+
+eflag = ()
+file = ()
+cmd = ()
+
+if (~ $* '')
+	usage
+
+while (! ~ $#* 0) switch ($1) {
+case -e
+	eflag = 1
+	* = $*(2-)
+case *
+	if (~ $file '') file = $1
+	if not cmd = ($cmd $1)
+
+	* = $*(2-)
+}
+
+if (~ $file '')
+	die 'no file'
+
+if (! test -r $file)
+	die 'file is unreadable'
+
+if (~ $cmd '')
+	die 'no command'
+
+if (~ $eflag '') {
+	$cmd >$tmp
+	cmdstatus = $status
+}
+if not {
+	$cmd >[2]$tmp
+	cmdstatus = $status
+}
+
+if (! 9 cmp -s $file $tmp) {
+	if (~ $eflag '') cat $tmp
+	if not cat $tmp >[1=2]
+}
+
+exit $cmdstatus

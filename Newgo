@@ -1,0 +1,47 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+main = `''{cat <<'!'}
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello, 世界")
+}
+!
+
+mod = ''
+
+if (~ $* '') mod = play`{nextid . '^play[1-9][0-9]*$'}
+if not mod = $1
+
+dir = `{pwd}/$mod
+
+if (! test -e $dir) {
+	mkdir -p $dir
+	cd $dir
+	go mod init $mod >/dev/null >[2=1]
+	echo -n $main >$dir/$mod.go
+	plumb -d edit $mod.go
+	winid = `{findwindow $mod.go}
+	echo -n L fmt |winwrite tag
+	if (whatis Watch >/dev/null >[2=1])
+		Watch go run $mod.go &
+
+	exit 0
+}
+if not if (test -d $dir) {
+	plumb -d edit $dir
+	exit 0
+}
+if not {
+	echo >[1=2] not a directory: $dir
+	exit 1
+}

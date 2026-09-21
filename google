@@ -1,0 +1,28 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+. libstring.rc
+
+fn usage {
+	>[1=2] {
+		echo usage: google text...
+	}
+	exit usage
+}
+
+if (winid = `{winarg $* >[2]/dev/null}) switch (`{winname}) {
+case *.go
+	* = (go $*)
+case *.sql
+	* = (sql $*)
+}
+
+if (~ $* '')
+	usage
+
+exec plumb 'http://google.com/search?q='`{stringjoin + `{urienc $*}}

@@ -1,0 +1,6 @@
+#!/usr/bin/env rc
+mysql/t |Unwrap -s
+
+# Acme-specific programs don't seem to need an exit code.
+#
+exit 0

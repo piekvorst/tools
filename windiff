@@ -1,0 +1,46 @@
+#!/usr/bin/env rc
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+fn usage {
+	{
+		echo 'windiff re1 re2 shows the difference between two windows matching re1 and re2 respectively'
+		echo
+		echo 'windiff re shows the diff between the current window and the one matching re'
+	} |fmt >[1=2]
+
+	die
+}
+
+fn dotorbody {
+	if (winextract |grep -s '.?') winextract
+	if not winextract ','
+}
+
+fn findwindow {
+	s = '' {
+		for (s) 9p read acme/index |grep -e $s |sed 1q |awk '{print $1}'
+	}
+}
+
+switch ($#*) {
+case 1
+	if (! id = `{winarg $*})
+		die 'cannot infer the argument'
+
+	/usr/bin/diff \
+		<{dotorbody} \
+		<{winid = $id dotorbody}
+case 2
+	if (! ids = `{findwindow $*})
+		die 'cannot find a window: '$*
+
+	/usr/bin/diff \
+		<{winid = $ids(1) dotorbody} \
+		<{winid = $ids(2) dotorbody}
+case *
+	usage
+}

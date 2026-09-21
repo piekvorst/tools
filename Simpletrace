@@ -1,0 +1,19 @@
+#!/usr/bin/env rc
+
+# Only keep file.go:num and remove wdir
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+file = '([^\/	 ]*\/)*[^\/	 ]*\.go:[1-9][0-9]*'
+
+if (! winaddr '0+/\.go:[1-9]/-+,$-/\.go:[1-9]/-+') {
+	echo >[1=2] file.go:num not found
+	exit 1
+}
+
+winctl dot=addr
+
+winpipe rc -c 'ssam -e ''y/''$file''/ c/\n/'' |cutprefix `{pwd}/ `{cat}'

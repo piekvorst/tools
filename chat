@@ -1,0 +1,82 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+# Environment
+#
+# chatendpoint, chatkey
+
+. 9.rc
+
+buf = $TMPDIR/chat$pid.`{seq 2}
+bufbody = $buf(1)
+bufheaders = $buf(2)
+
+curlstartlimit = 5
+
+curl = (curl --location --no-progress-meter)
+
+# curl error handling: fail on >=400 and retain the headers and body,
+# though not on /dev/fd1 (the default option)
+#
+curl = ($curl --fail-with-body -D $bufheaders -o $bufbody)
+
+fn sigexit {rm -f $buf}
+
+fn addmessage {
+	$1 = `''{
+		echo -n $$1 |
+		jq \
+			--arg r $2 \
+			--arg c $3 \
+			'.messages += [{"role": $r, "content": $c}]'
+	}
+}
+
+fn fmt {c = '([^`]|\n)' ssam -e 'y/.*```('$c'|`'$c'|``'$c')*```/ |fmt -j'}
+
+touch $buf
+
+if (! trurl --verify -- $chatendpoint >/dev/null) {
+	echo >[1=2] chatendpoint is not a valid url
+	exit env
+}
+
+if (test ! -f $chatkey -o ! -r $chatkey) {
+	echo >[1=2] chatkey is either not a file or unreadable
+	exit env
+}
+
+if (! key = `{gpgdecrypt $chatkey </dev/null >[2]/dev/null |sed 1q}) {
+	echo >[1=2] failed to decrypt key
+	exit gpg
+}
+
+curl = ($curl -H 'Authorization: Bearer '$key)
+
+request = '{"model": "mistral-small-latest"}'
+
+if (! ~ $* '')
+	addmessage request system $"*
+
+fd0 = `''{cat}
+addmessage request user $"fd0
+
+stop = ''
+starts = 0
+
+while (~ $stop '') {
+	if (~ $starts $curlstartlimit)
+		exit curl
+
+	if (! $curl --json $request -- $chatendpoint)
+		cat >[1=2] $bufheaders $bufbody
+	if not
+		stop = 1
+
+	starts = `{echo $starts + 1 |bc}
+}
+
+cat $bufbody |
+jq --raw-output '.choices[0].message.content' |
+fmt

@@ -1,0 +1,56 @@
+#!/usr/bin/env rc
+flag e +
+ifs = '
+'
+
+# Gitblame runs git blame on the current window, puts it inside an
+# Unwrap window, and preserves the current line.
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+fs = '
+	 '
+
+tmpdir = /tmp/`{basename $0}$pid
+mkdir -p $tmpdir
+
+unwrapfd1 = $tmpdir/unwrapfd1
+
+fn sigexit {rm -r $tmpdir}
+
+file = `{winname}
+
+if (test ! -r $file -or ! -f $file) {
+	echo >[1=2] current window is not a readable file
+	exit 1
+}
+
+if (! git rev-parse --is-inside-work-tree >/dev/null) {
+	echo >[1=2] not inside a git work tree
+	exit 1
+}
+
+linecol = `$fs{winlinecolumn}
+
+{git blame -c --date short -- $% |Unwrap -sw >$unwrapfd1} &
+unwrappid = $apid
+
+while (
+	sleep 1 &&
+	winid = `{cat $unwrapfd1 >[2]/dev/null |sed 1q} &&
+	~ $winid ''
+);
+
+if (~ $linecol(1)$linecol(2) $linecol(3)$linecol(4))
+	winaddr $linecol(1)'-#0'
+if not
+	winaddr $linecol(1),$linecol(3)
+
+winctl dot=addr
+winctl show
+
+wait $unwrappid
+exit 0

@@ -1,0 +1,8 @@
+#!/usr/bin/env rc
+
+if (test -t 0 && test -t 1 && test -t 2) {
+	if (! ~ $* '') exec $*
+	if not exit 0
+}
+
+exit 1

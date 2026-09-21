@@ -1,0 +1,27 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+
+fn files {
+	pacman -Qlq uutils-coreutils uutils-findutils-bin |
+	grep '^/usr/bin/uu-'
+}
+
+flagfmt = 'R'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit
+}
+
+if (! ~ $flagR '') {
+	rm -f `{files |sed 's|^/usr/bin/uu-|/usr/local/bin/|'}
+	exit 0
+}
+
+for (pkg in `{files})
+	ln -fs $pkg /usr/local/bin/`{echo_s $pkg |sed 's|^/usr/bin/uu-||'}
+
+exit 0

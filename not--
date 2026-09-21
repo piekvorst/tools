@@ -1,0 +1,130 @@
+#!/usr/bin/env rc
+
+# not-- *lexically* removes comments from files or, if not provided,
+# its standard input.
+#
+# -l specifies the language for the standard input or all files. If
+# not provided, the language is determined individually for each file
+# by its extension. If the extension is unknown or no files are
+# provided, C is assumed.
+#
+# not-- fails to correctly handle inline comments, both single and
+# multi-line. In general, it's impossible to do it on the lexical
+# level, even if a line starts with a comment.
+
+fn notc {
+	r1 = '([^*]|\n)' r2 = '([^\/]|\n)' {
+		grep -v '^[	 ]*//' |
+		sed 's![	 ]*//.*!!' |
+		ssam -e 'x/[	 ]*\/\*('$r1'|\/'$r2')*\*\// d'
+	}
+}
+
+fn noterl {
+	grep -v '^[	 ]*%' |
+	sed 's/[	 ]*%.*//'
+}
+
+fn noths {
+	r1 = '([^\-]|\n)' r2 = '([^}]|\n)' {
+		grep -v '^[	 ]*--' |
+		sed 's/[	 ]*--.*//' |
+		ssam -e 'x/[	 ]*{-('$r1'|-'$r2')*-}/ d'
+	}
+}
+
+fn nothtml {
+	r1 = '([^\-]|\n)' r2 = '([^>]|\n)' {
+		ssam -e 'x/<!--('$r1'|-'$r1'|--'$r2')*-->/ d'
+	}
+}
+
+fn notlua {
+	r = '([^\]]|\n)' {
+		ssam -e 'x/[	 ]*--\[\[('$r'|\]'$r')*\]\]/ d' |
+		grep -v '^[	 ]*--' |
+		sed 's/[	 ]*--.*//'
+	}
+}
+
+fn notpas {
+	r1 = '([^*]|\n)' r2 = '([^)]|\n)' r3 = '([^}]|\n)' {
+		ssam -e 'x/[	 ]*\(\*('$r1'|\*'$r2')*\*\)/ d' |
+		ssam -e 'x/[	 ]*{('$r3')*}/ d'
+	}
+}
+
+fn notpy {
+	r1 = '([^"]|\n)' r2 = '([^'']|\n)' {
+		grep -v '^[	 ]*#' |
+		sed 's/[	 ]*#.*//' |
+		ssam -e 'x/[	 ]*"""('$r1'|"'$r1'|""'$r1')*"""/ d' |
+		ssam -e 'x/[	 ]*''''''('$r2'|'''$r2'|'''''$r2')*''''''/ d'
+	}
+}
+
+fn notrb {
+	r = (. '([^' ^ (= e n d) ^ ']|\n)') {
+		grep -v '^[	 ]*#' |
+		sed 's/[	 ]*#.*//' |
+		ssam -e 'x/^=begin\n(=end|(.|\n'$r(1)'|\n='$r(2)'|\n=e'$r(3)'|\n=en'$r(4)')*\n=end)/ d'
+	}
+}
+
+fn notsh {
+	grep -v '^[	 ]*#' |
+	sed 's/[	 ]*#.*//'
+}
+
+fn notsql {
+	r1 = '([^*]|\n)' r2 = '([^\/]|\n)' {
+		grep -v '^[	 ]*--' |
+		sed 's/[	 ]*--.*//' |
+		ssam -e 'x/[	 ]*\/\*('$r1'|\/'$r2')*\*\// d'
+	}
+}
+
+fn handler {
+	switch ($1) {
+	case c cc cpp cxx cs go h java js kt kts php rs swift ts
+		echo notc
+	case erl hrl
+		echo noterl
+	case hs
+		echo noths
+	case html
+		echo nothtml
+	case lua
+		echo notlua
+	case pas
+		echo notpas
+	case py
+		echo notpy
+	case rb
+		echo notrb
+	case ex exs sh rc
+		echo notsh
+	case sql
+		echo notsql
+	case *
+		echo notc
+	}
+}
+
+flagfmt = 'l lang'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit usage
+}
+
+if (~ $#* 0) {
+	cat |`{handler $flagl}
+}
+if not {
+	for (f) {
+		if (! ~ $flagl '') cat $f |`{handler $lang}
+		if not cat $f |`{handler `{echo -n $f |sed 's/.*\.//'}}
+	}
+}
+
+exit 0

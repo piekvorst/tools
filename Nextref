@@ -1,0 +1,108 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+nl = '
+'
+fs = '
+	 '
+
+defaultdiagname = /LSP/Diagnostics
+
+fn parseloc {
+	sed '
+		s/(.+):([1-9][0-9]*)\.([1-9][0-9]*),([1-9][0-9]*)\.([1-9][0-9]*):.*/\1\n\2\n\3\n\4\n\5\n/
+		s/(.+):([1-9][0-9]*):.*/\1\n\2\n/
+	'
+}
+
+fn mkaddr {@ {
+	switch ($#*) {
+	case 1
+		echo $1
+	case 4
+		echo $1'-#1+#'$2','$3'-#1+#'$4
+	case *
+		echo >[1=2] mkaddr: unexpected number of arguments: $#*, $*
+		exit args
+	}
+}}
+
+winname = `{winname}
+if (~ $winname *''$nl''*) {
+	echo >[1=2] multiline name: $winname
+	exit 1
+}
+
+if (test ! -e $winname) {
+	if (! acmeaddr '/.+:[1-9][0-9]*(\.[1-9][0-9]*,[1-9][0-9]*\.[1-9][0-9]*)?:.*/-+' >/dev/null >[2=1])
+		exit 0
+
+	winctl dot=addr
+	winctl show
+	loc = `{winread xdata |parseloc}
+	winopen $loc(1) `{mkaddr $loc(2-)} >/dev/null
+}
+if not {
+	if (~ $1 '')
+		diagname = $defaultdiagname
+	if not
+		diagname = $1
+
+	diagwinid = `{findwindow $diagname}
+	if (~ $diagwinid '') {
+		exit 0
+	}
+
+	diagdir = `{windir $diagname}
+
+	winloc = `$fs{winlinecolumn}
+	nextloc = (0 0)
+
+	line = 0
+	stopline = 0
+
+	winid = $diagwinid winread body |
+	while (loc = `{read |parseloc}) {
+		line = `{echo $line + 1 |bc}
+
+		if (~ `{cleanname -d $diagdir $loc(1)} $winname) {
+			loc = $loc(2-)
+
+			if (~ $"nextloc '0 0') {
+				nextloc = $loc
+				stopline = $line
+			}
+
+			if (test $winloc(1) -lt $loc(1)) {
+				nextloc = $loc
+				stopline = $line
+				cat >/dev/null
+			}
+			if not if (test $winloc(1) = $loc(1) && ~ $#loc 4 && test $winloc(2) -lt $loc(2)) {
+				nextloc = $loc
+				stopline = $line
+				cat >/dev/null
+			}
+		}
+	}
+
+	if (! ~ $"nextloc '0 0') {
+		winaddr `{mkaddr $nextloc}
+		winctl dot=addr
+		winctl show
+
+		winid = $diagwinid {
+			winaddr $stopline
+			winctl dot=addr
+			winctl show
+		}
+	}
+}
+
+exit 0

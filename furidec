@@ -1,0 +1,27 @@
+#!/usr/bin/env rc
+
+# see furienc
+
+. 9.rc
+. lib.rc
+
+fn usage {die 'furidec file...'}
+
+if (~ $* '')
+	usage
+
+furidecstatus = ()
+
+for (src) {
+	dst = `{basename -d $src}/`{uridec `{basename $src}}
+	if (test -e $dst) {
+		echo >[1=2] dst already exists: $dst
+		furidecstatus = 1
+	}
+	if not {
+		if (! mv $src $dst)
+			furidecstatus = 1
+	}
+}
+
+exit $furidecstatus

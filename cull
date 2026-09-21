@@ -1,0 +1,23 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+signal = TERM
+
+flagfmt = 's signal'
+if (! eval `''{getflags >[2=1] $*}) {
+	usage
+	exit
+}
+
+if (! ~ $flags '')
+	signal = $flags
+
+if (~ $#* 0) {
+	echo >[1=2] cull: not enough arguments
+	exit 1
+}
+
+ps -o pid= -o args= x |
+9 grep -e $1 |
+awk -v s=$signal '{print "kill", "-s", s, $1, "#", $0}'

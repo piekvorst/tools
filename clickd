@@ -1,0 +1,20 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+
+b1 = 0
+b2 = 0
+b3 = 0
+
+libinput debug-events |
+grep 'POINTER_BUTTON.+(BTN_LEFT|BTN_MIDDLE|BTN_RIGHT).+released' |
+while (s = `{read}) {
+	switch ($s) {
+	case *BTN_LEFT*; b1 = `{echo $b1 + 1 |bc}
+	case *BTN_MIDDLE*; b2 = `{echo $b2 + 1 |bc}
+	case *BTN_RIGHT*; b3 = `{echo $b3 + 1 |bc}
+	}
+	echo $b1 $b2 $b3 >/tmp/clickd.count
+}

@@ -1,0 +1,16 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+if (~ $1 '') {
+	echo >[1=2] ns name must not be empty
+	exit 1
+}
+
+NAMESPACE = /tmp/ns$1
+mkdir -p $NAMESPACE
+
+if (~ $#* 1)
+	exec rc
+if not
+	exec $*(2-)

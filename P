@@ -1,0 +1,37 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. $PLAN9/lib/acme.rc
+. lib.rc
+. libacme.rc
+
+progname = `{basename $0}
+
+tmpdir = /tmp/$progname$pid
+mkdir -p $tmpdir
+
+tmpbody = $tmpdir/body
+
+fn sigexit {rm -r $tmpdir}
+
+winread body >$tmpbody
+
+name = `{winname}
+if (~ $name '') {
+	echo >[1=2] empty name
+	exit 1
+}
+
+winstruct -c run0 rc -c 'cat $1 >$2' $tmpbody $name
+run0status = $status
+
+if (~ $run0status '') {
+	winctl clean
+
+	# Don't reload the file. It can be unreadable by the current
+	# user.
+}
+
+exit 0
