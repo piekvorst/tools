@@ -38,7 +38,9 @@ mkdir -p $tmpdir
 
 tmpinput = $tmpdir/input
 tmpsecretid = $tmpdir/secretid
+
 tmpstatus = $tmpdir/status
+touch $tmpstatus
 
 inputwinid = ''
 
@@ -144,7 +146,12 @@ if (! ~ $input '')
 if (! ~ $secret '')
 	winid = `{cat $tmpsecretid} windelifclean
 
-if (! ~ $flagc '' && ~ `{cat $tmpstatus} '')
-	winctl delete
+if (! ~ $flagc '' && ~ `{cat $tmpstatus} '') {
+
+	# If user already deleted the window, another delete would fail.
+	# Ignore it.
+	#
+	winctl delete >[2]/dev/null
+}
 
 exit `{cat $tmpstatus}
