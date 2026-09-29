@@ -18,8 +18,13 @@ progname = `{basename $0}
 tmpdir = /tmp/$progname$pid
 mkdir -p $tmpdir
 
+parentbody = $tmpdir/parentbody
+
 parentwinid = $winid
 winid = '' # be explicit in multi-window context
+
+currentlines = $tmpdir/currentlines
+touch $currentlines
 
 fn sigexit {rm -r $tmpdir}
 
@@ -70,32 +75,50 @@ fn event {
 }
 
 fn get {@ {
-	newbody = $tmpdir/newbody
 	currentbody = $tmpdir/currentbody
 
-	winid = $parentwinid {
-		winread body >$newbody
-		parentaddr = `$fs{acmeaddr}
-
-		# FIXME: move this to acmeaddr
-		#
-		if (~ $#parentaddr 1)
-			parentaddr = ($parentaddr $parentaddr)
+	winid = $filterwinid {
+		linecol = `$fs{winlinecolumn}
 	}
+
+	parentline = `{sed -n $linecol(1)p $currentlines}
+	winid = $parentwinid {
+		if (~ $linecol(1) $linecol(3) && ! ~ $linecol(2) $linecol(4))
+			parentaddr = `$fs{acmeaddr $parentline'-#0+#'$linecol(2)'-#1',$parentline'-#0+#'$linecol(4)'-#1'}
+		if not
+			parentaddr = `$fs{acmeaddr $parentline'-#0+#'$linecol(2)'-#1'}
+	}
+
+	# FIXME: move this to acmeaddr
+	#
+	if (~ $#parentaddr 1)
+		parentaddr = ($parentaddr $parentaddr)
 
 	winid = $filterwinid {
 		winread body >$currentbody
 	}
 
-	if (! cmp -s $currentbody $newbody) {
+	awk '{print NR}' $parentbody >$currentlines
+
+	if (! cmp -s $currentbody $parentbody) {
 		winid = $filterwinid {
 			oldname = `{winname}
-			winctl name $newbody
+			winctl name $parentbody
 			winctl clean
 			winctl get
 			winctl name $oldname
 			winctl clean
 
+			winaddr '#'$parentaddr(1)',#'$parentaddr(2)
+			winctl dot=addr
+			winctl show
+		}
+	}
+	if not {
+		winid = $filterwinid {
+			winctl del
+		}
+		winid = $parentwinid {
 			winaddr '#'$parentaddr(1)',#'$parentaddr(2)
 			winctl dot=addr
 			winctl show
@@ -144,6 +167,17 @@ fn pick {@ {
 	<$currentbody >$newbody {
 		grep '*'$dot
 	}
+
+	awk -v dot=$dot '
+		NR == FNR {
+			numbers[FNR] = $0
+			next
+		}
+		$0 ~ dot {
+			print numbers[FNR]
+		}
+	' $currentlines $currentbody >$currentlines$pid
+	mv $currentlines$pid $currentlines
 
 	if (! cmp -s $currentbody $newbody) {
 		winid = $filterwinid {
@@ -195,6 +229,17 @@ fn skip {@ {
 		grep -v '*'$dot
 	}
 
+	awk -v dot=$dot '
+		NR == FNR {
+			numbers[FNR] = $0
+			next
+		}
+		$0 !~ dot {
+			print numbers[FNR]
+		}
+	' $currentlines $currentbody >$currentlines$pid
+	mv $currentlines$pid $currentlines
+
 	if (! cmp -s $currentbody $newbody) {
 		winid = $filterwinid {
 			oldname = `{winname}
@@ -212,11 +257,6 @@ fn skip {@ {
 	}
 }}
 
-winid = $parentwinid {
-	winwordaddr >/dev/null
-	dot = `''{winread xdata}
-}
-
 ctl = `$fs{9p read acme/new/ctl}
 filterwinid = $ctl($acmeindexid)
 
@@ -225,7 +265,30 @@ winid = $filterwinid {
 	echo -n 'Get Pick Skip ' |winwrite tag
 }
 
-get
+winid = $parentwinid {
+	winread body >$parentbody
+	parentaddr = `$fs{acmeaddr}
+}
+
+# FIXME: move this to acmeaddr
+#
+if (~ $#parentaddr 1)
+	parentaddr = ($parentaddr $parentaddr)
+
+winid = $filterwinid {
+	oldname = `{winname}
+	winctl name $parentbody
+	winctl clean
+	winctl get
+	winctl name $oldname
+	winctl clean
+
+	winaddr '#'$parentaddr(1)',#'$parentaddr(2)
+	winctl dot=addr
+	winctl show
+}
+
+awk '{print NR}' $parentbody >$currentlines
 
 # Don't run Pick automatically if it's not safe.
 #
