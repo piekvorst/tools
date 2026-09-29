@@ -340,8 +340,8 @@ fn winlinecolumn {@ {
 	fs = '
 	 '
 
-	fn startcol {echo 1 + `{winextract $1',-#0' |wc -c} |bc}
-	fn endcol {echo 1 + `{winextract $1',+#0' |wc -c} |bc}
+	fn startcol {echo 1 + `$fs{winextract $1',-#0' |wc -c} |bc}
+	fn endcol {echo 1 + `$fs{winextract $1',+#0' |wc -c} |bc}
 
 	lines = `$fs{winline}
 	switch ($#lines) {
