@@ -1,0 +1,84 @@
+#!/usr/bin/env rc
+ifs = '
+'
+
+. 9.rc
+. lib.rc
+. libhtml.rc
+
+progname = `{basename $0}
+
+tmpdir = /tmp/$progname$pid
+mkdir -p $tmpdir
+
+error = $tmpdir/error
+touch $error
+
+mu = $tmpdir/mu
+touch $mu
+
+pages = ()
+titles = ()
+
+jobs = 4
+
+fn sigexit {rm -r $tmpdir}
+
+for (u in `{caturls}) {
+	titles = ($titles $tmpdir/title$#titles)
+	pages = ($pages $tmpdir/page$#pages)
+
+	{
+		{
+			flock 3
+			if (! ~ `{cat $error} '')
+				exit 1
+		} >[3]$mu
+
+		page = $pages($#pages)
+
+		if (! socks/curl --silent --location -- $u >$page) {
+			{
+				flock 3
+				echo_s failed to read page: $u >$error
+			} >[3]$mu
+			exit 1
+		}
+
+		title = `{
+			cat $page |
+			ssam -e 's!(.|\n)*<title(>| [^>]*>)(([^<]|\n)*)</title>(.|\n)*!\3!' |
+			htmlunescape
+		}
+		title = $"title
+
+		published = `{
+			cat $page |
+			ssam -e '{
+				d
+				x!<meta [^>]*>! g/itemprop="datePublished"/ {
+					x/content="[^"]*"/ -#0+/"/+#0,+#0-/"/-#0 {
+						t $
+						$ c/\n/
+					}
+				}
+			}' |
+			htmlunescape |
+			sed 's/T.*//'
+		}
+		published = $"published
+
+		echo_s $u'		'$published'		'$title >$titles($#titles)
+	} &
+
+	wgadd wg $jobs
+}
+
+wgwait wg
+
+if (! ~ `{cat $error} '') {
+	echo_s >[1=2] $progname: `{cat $error}
+	exit 1
+}
+
+cat $titles
