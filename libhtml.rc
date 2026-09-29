@@ -1,0 +1,10 @@
+# libhtml.rc requires 9.rc
+
+fn htmlunescape {
+	tr '\xa' ' ' |
+	ssam -e 'x/&[^;]*;/ {
+		g/&amp;/ c/&/
+		g/&nbsp;/ <unicode -t a0
+		g/&#39;/ c/''/
+	}'
+}
