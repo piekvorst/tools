@@ -282,15 +282,24 @@ winid = $filterwinid {
 	winctl get
 	winctl name $oldname
 	winctl clean
-
-	winaddr '#'$parentaddr(1)',#'$parentaddr(2)
-	winctl dot=addr
-	winctl show
 }
 
 awk '{print NR}' $parentbody >$currentlines
 
-# Don't run Pick automatically if it's not safe.
+# If arguments are provided, Filter sets the dot to the first match in
+# file. If not provided or don't match anything, Filter inherits the
+# parent's dot.
+#
+winid = $filterwinid {
+	if (! {! ~ $"* '' && acmeaddr '0+/'`{samescape $"*}'/' >/dev/null >[2=1]})
+		winaddr '#'$parentaddr(1)',#'$parentaddr(2)
+
+	winctl dot=addr
+	winctl show
+}
+
+# Don't run Pick automatically if it's not safe (e.g. unsafe
+# parent dot).
 #
 if (validatepick >[2]/dev/null)
 	pick
