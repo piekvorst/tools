@@ -15,9 +15,9 @@ The default format "words" is designed specifically to be friendly
 for simple text manipulation. In particular, parsing is as easy
 as:
 
-fs = '-:
- 	' # newline, space, and tab
-now = `$fs{fmtdate}
+    fs = '-:
+     	' # newline, space, and tab
+    now = `$fs{fmtdate}
 
 Both ISO 9075 and RFC 3339 attach the timezone directly to the
 time, which makes it impossible to parse a string in a simple
