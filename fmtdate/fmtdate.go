@@ -4,10 +4,10 @@ fmtdate prints the date, time, and timezone.
 The flags are:
 
 	-f format
-	    Possible values are: words (default), iso9075, rfc3339.
+		Possible values are: words (default), iso9075, rfc3339.
 
 	-u
-	    Report Greenwich Mean Time (GMT) rather than local time.
+		Report Greenwich Mean Time (GMT) rather than local time.
 
 # Notes for shell usage
 
@@ -15,9 +15,9 @@ The default format "words" is designed specifically to be friendly
 for simple text manipulation. In particular, parsing is as easy
 as:
 
-    fs = '-:
-     	' # newline, space, and tab
-    now = `$fs{fmtdate}
+	fs = '-:
+	 	' # newline, space, and tab
+	now = `$fs{fmtdate}
 
 Both ISO 9075 and RFC 3339 attach the timezone directly to the
 time, which makes it impossible to parse a string in a simple
@@ -39,7 +39,7 @@ import (
 type FormatFlag string
 
 const (
-	WordsFlag FormatFlag = "words"
+	WordsFlag   FormatFlag = "words"
 	ISO9075Flag FormatFlag = "iso9075"
 	RFC3339Flag FormatFlag = "rfc3339"
 )
@@ -76,8 +76,8 @@ func EnumFlag[T ~string](p *T, name string, value T, allowed []T) {
 
 func FormatWords(t time.Time) string {
 	type tzwords struct {
-		Sign rune
-		Hours int
+		Sign    rune
+		Hours   int
 		Minutes int
 	}
 
