@@ -139,6 +139,9 @@ func main() {
 		output = now.Format(time.RFC3339)
 	}
 
+	// A safeguard against adding a new format and forgetting to
+	// handle it.
+	//
 	if output == "" {
 		log.Fatalf("unknown format: %s", format)
 	}
