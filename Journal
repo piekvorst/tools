@@ -7,10 +7,12 @@ ifs = '
 . lib.rc
 . libacme.rc
 . liblist.rc
-. libtime.rc
 
 nl = '
 '
+
+datefs = ':
+ 	'
 
 now = `$datefs{date |tr A-Z a-z}
 
@@ -84,7 +86,7 @@ fn mktag {
 		if not {
 			l = (jan feb mar apr may jun jul aug sep oct nov dec)
 			echo $l(`{echo `{listindex $month $l} - 1 |bc})
-			if (! ~ $year $now($dateyear))
+			if (! ~ $year $now(8))
 				echo $year
 		}
 		echo touch
@@ -123,26 +125,26 @@ if not if (~ $#* 2) {
 		usage
 		exit args
 	}
-	if (~ $month $now($datemonth) && ~ $year $now($dateyear))
-		day = $now($dateday)
+	if (~ $month $now(2) && ~ $year $now(8))
+		day = $now(3)
 }
 if not if (~ $#* 1) {
 	if (! month = `{checkmonth $1}) {
 		usage
 		exit args
 	}
-	year = $now($dateyear)
+	year = $now(8)
 }
 if not if (! ~ $winid '' 0 && ! ~ `{winmonth} '' && ! ~ `{winyear} '') {
 	month = `{winmonth}
 	year = `{winyear}
-	if (~ $month $now($datemonth) && ~ $year $now($dateyear))
-		day = $now($dateday)
+	if (~ $month $now(2) && ~ $year $now(8))
+		day = $now(3)
 }
 if not {
-	day = $now($dateday)
-	month = $now($datemonth)
-	year = $now($dateyear)
+	day = $now(3)
+	month = $now(2)
+	year = $now(8)
 }
 
 plumb -d edit $home/$year/$month
