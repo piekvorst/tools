@@ -237,21 +237,33 @@ fn winarg {
 
 # winlook reproduces Look behavior.
 #
-fn winlook {
+# It returns 0 if the match is found and 1 otherwise.
+#
+fn winlook {@ {
 	if (! ~ $1 '' && acmeaddr /`{samescape $1}/ >/dev/null >[2=1]) {
 		winctl dot=addr
 		winctl show
+
+		exit 0
 	}
-}
+
+	exit 1
+}}
 
 # winlookback reproduces the reverse of Look behavior.
 #
-fn winlookback {
+# It copies winlook's return status semantics.
+#
+fn winlookback {@ {
 	if (! ~ $1 '' && acmeaddr -/`{samescape $1}/ >/dev/null >[2=1]) {
 		winctl dot=addr
 		winctl show
+
+		exit 0
 	}
-}
+
+	exit 1
+}}
 
 fn windelifclean {
 	fs = '
