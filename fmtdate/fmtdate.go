@@ -55,12 +55,17 @@ func Join[T ~string](elems []T, sep string) string {
 	return strings.Join(buf, sep)
 }
 
-func EnumFlag[T ~string](p *T, name string, value T, allowed []T) {
+func EnumFlagFS[T ~string](fs *flag.FlagSet, p *T, name string, value T, allowed []T) {
 	*p = value
 
-	flag.Func(name, "", func(raw string) error {
+	cleanallowed := slices.Clone(allowed)
+	for i := range cleanallowed {
+		cleanallowed[i] = T(strings.ToLower(strings.TrimSpace(string(cleanallowed[i]))))
+	}
+
+	fs.Func(name, "", func(raw string) error {
 		clean := T(strings.ToLower(strings.TrimSpace(raw)))
-		if !slices.Contains(allowed, clean) {
+		if !slices.Contains(cleanallowed, clean) {
 			return fmt.Errorf("must be one of %s", Join(allowed, " "))
 		}
 
@@ -68,6 +73,10 @@ func EnumFlag[T ~string](p *T, name string, value T, allowed []T) {
 
 		return nil
 	})
+}
+
+func EnumFlag[T ~string](p *T, name string, value T, allowed []T) {
+	EnumFlagFS(flag.CommandLine, p, name, value, allowed)
 }
 
 func FormatWords(t time.Time) string {
