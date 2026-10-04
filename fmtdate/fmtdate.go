@@ -47,10 +47,6 @@ const (
 const ISO9075 = "2006-01-02 15:04:05-07:00"
 
 func Join[T ~string](elems []T, sep string) string {
-	if len(elems) == 0 {
-		return ""
-	}
-
 	buf := make([]string, 0, len(elems))
 	for _, v := range elems {
 		buf = append(buf, string(v))
