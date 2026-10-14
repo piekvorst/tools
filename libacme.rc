@@ -282,7 +282,7 @@ fn winextract {
 	if not echo -n
 }
 
-# winwordaddr prints the address of non-nill dot or surrounding
+# winwordaddr prints the address of non-nil dot or surrounding
 # [a-zA-Z_0-9]* if the dot is nil.
 #
 # If the dot points to a file somehow, winwordaddr makes no attempt
