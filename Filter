@@ -109,7 +109,11 @@ fn get {@ {
 			winctl name $oldname
 			winctl clean
 
-			winaddr '#'$parentaddr(1)',#'$parentaddr(2)
+			if (~ $parentaddr(1) $parentaddr(2))
+				winaddr '#'$parentaddr(1)'-+'
+			if not
+				winaddr '#'$parentaddr(1)',#'$parentaddr(2)
+
 			winctl dot=addr
 			winctl show
 		}
@@ -119,7 +123,10 @@ fn get {@ {
 			winctl del
 		}
 		winid = $parentwinid {
-			winaddr '#'$parentaddr(1)',#'$parentaddr(2)
+			if (~ $parentaddr(1) $parentaddr(2))
+				winaddr '#'$parentaddr(1)'-+'
+			if not
+				winaddr '#'$parentaddr(1)',#'$parentaddr(2)
 			winctl dot=addr
 			winctl show
 		}
@@ -151,6 +158,7 @@ fn pick {@ {
 
 	winid = $filterwinid {
 		winwordaddr >/dev/null
+		winctl dot=addr # expand the nil dot
 		dot = `''{winread xdata}
 
 		oldlinecol = `$fs{winlinecolumn}
@@ -193,6 +201,7 @@ fn pick {@ {
 			col1 = `{echo_s $oldlinecol(2) - 1 |bc}
 			col2 = `{echo_s $oldlinecol(4) - 1 |bc}
 			winaddr $line'-#0+#'$col1','$line'-#0+#'$col2
+
 			winctl dot=addr
 			winctl show
 		}
