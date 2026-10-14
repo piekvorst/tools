@@ -269,14 +269,15 @@ fn skip {@ {
 ctl = `$fs{9p read acme/new/ctl}
 filterwinid = $ctl($acmeindexid)
 
-winid = $filterwinid {
-	winctl name `{nextwinname `{pwd} filter}
-	echo -n 'Get Pick Skip ' |winwrite tag
-}
-
 winid = $parentwinid {
 	winread body >$parentbody
 	parentaddr = `$fs{acmeaddr}
+	parentname = `{winname}
+}
+
+winid = $filterwinid {
+	winctl name `{nextwinname $parentname filter}
+	echo -n 'Get Pick Skip ' |winwrite tag
 }
 
 # FIXME: move this to acmeaddr
